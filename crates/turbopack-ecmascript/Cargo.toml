@@ -34,7 +34,9 @@ swc_ecma_ast = "0.109.1"
 swc_ecma_codegen = "0.145.0"
 swc_ecma_parser = "0.140.0"
 swc_ecma_preset_env = "0.201.0"
-swc_ecma_transforms_base = "0.133.0"
+swc_ecma_transforms_base = { version = "0.133.0", features = [
+  "concurrent-renamer",
+] }
 swc_ecma_transforms_module = "0.176.0"
 swc_ecma_transforms_proposal = "0.167.0"
 swc_ecma_transforms_react = "0.179.0"
