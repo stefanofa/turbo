@@ -1,12 +1,4 @@
 use anyhow::Result;
-use swc_core::{
-    common::{Globals, GLOBALS},
-    css::{
-        ast::{AtRule, AtRulePrelude, Rule},
-        codegen::{writer::basic::BasicCssWriter, CodeGenerator, Emit},
-        visit::{VisitMutWith, VisitMutWithPath},
-    },
-};
 use turbo_tasks::{TryJoinIterExt, Value, ValueToString, Vc};
 use turbo_tasks_fs::FileSystemPath;
 use turbopack_core::{
