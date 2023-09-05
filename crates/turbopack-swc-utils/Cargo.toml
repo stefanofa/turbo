@@ -10,6 +10,7 @@ autobenches = false
 bench = false
 
 [dependencies]
+swc_common = "0.32.1"
 turbo-tasks = { workspace = true }
 turbopack-core = { workspace = true }
 
