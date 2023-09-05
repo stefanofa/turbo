@@ -1,10 +1,5 @@
 use std::sync::Arc;
 
-use swc_core::common::{
-    errors::{DiagnosticBuilder, DiagnosticId, Emitter, Level},
-    source_map::Pos,
-    SourceMap,
-};
 use turbo_tasks::Vc;
 use turbopack_core::{
     issue::{analyze::AnalyzeIssue, IssueExt, IssueSeverity, IssueSource},
