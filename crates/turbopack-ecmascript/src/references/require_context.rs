@@ -2,16 +2,9 @@ use std::{collections::VecDeque, sync::Arc};
 
 use anyhow::{bail, Result};
 use indexmap::IndexMap;
-use swc_core::{
-    common::DUMMY_SP,
-    ecma::{
-        ast::{
-            Expr, ExprStmt, KeyValueProp, Lit, ModuleItem, ObjectLit, Prop, PropName, PropOrSpread,
-            Stmt, {self},
-        },
-        codegen::{text_writer::JsWriter, Emitter},
-    },
-    quote, quote_expr,
+use swc_ecma_ast::{
+    Expr, ExprStmt, KeyValueProp, Lit, ModuleItem, ObjectLit, Prop, PropName, PropOrSpread, Stmt,
+    {self as ast},
 };
 use turbo_tasks::{primitives::Regex, Value, ValueToString, Vc};
 use turbo_tasks_fs::{DirectoryContent, DirectoryEntry, FileSystemPath};

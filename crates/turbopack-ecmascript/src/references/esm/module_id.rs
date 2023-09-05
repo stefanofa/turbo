@@ -1,5 +1,4 @@
 use anyhow::Result;
-use swc_core::{ecma::ast::Expr, quote};
 use turbo_tasks::{ValueToString, Vc};
 use turbopack_core::{
     chunk::{ChunkableModuleReference, ChunkingTypeOption, ModuleId},

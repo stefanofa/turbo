@@ -1,11 +1,6 @@
 use std::borrow::Cow;
 
 use anyhow::Result;
-use swc_core::{
-    common::DUMMY_SP,
-    ecma::ast::{Expr, Ident},
-    quote,
-};
 use turbo_tasks::Vc;
 use turbo_tasks_fs::FileSystemPath;
 
