@@ -28,7 +28,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_qs = { workspace = true }
 swc_atoms = "0.5.9"
-swc_common = "0.32.1"
+swc_common = { version = "0.32.1", features = ["sourcemap"] }
 swc_core = { workspace = true, features = ["ecma_quote"] }
 swc_ecma_ast = { version = "0.109.1", features = ["serde-impl"] }
 swc_ecma_codegen = "0.145.0"
