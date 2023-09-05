@@ -9,18 +9,6 @@ use anyhow::Error;
 use indexmap::IndexSet;
 use rustc_hash::FxHasher;
 use serde::Deserialize;
-use swc_core::{
-    common::{util::take::Take, SourceMap},
-    ecma::{
-        ast::{EsVersion, Id, Module},
-        atoms::JsWord,
-        codegen::text_writer::JsWriter,
-        parser::parse_file_as_module,
-    },
-    testing::{
-        fixture, NormalizedOutput, {self},
-    },
-};
 
 use super::{
     graph::{

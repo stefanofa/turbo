@@ -1,11 +1,4 @@
 use anyhow::Result;
-use swc_core::{
-    common::errors::{Handler, HANDLER},
-    ecma::{
-        ast::{CallExpr, Expr, ExprOrSpread},
-        visit::{Visit, VisitWith},
-    },
-};
 use turbo_tasks::{Value, Vc};
 use turbopack_core::{
     reference::{ModuleReference, ModuleReferences},
