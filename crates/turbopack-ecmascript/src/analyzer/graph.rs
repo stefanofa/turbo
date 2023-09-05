@@ -4,14 +4,10 @@ use std::{
     mem::{replace, take},
 };
 
-use swc_core::{
-    common::{pass::AstNodePath, Mark, Span, Spanned, SyntaxContext},
-    ecma::{
-        ast::*,
-        atoms::js_word,
-        visit::{fields::*, VisitAstPath, VisitWithPath, *},
-    },
-};
+use swc_atoms::js_word;
+use swc_common::{Mark, Span};
+use swc_ecma_ast::{op, BinExpr, Expr, UnaryExpr, *};
+use swc_ecma_visit::{AstNodePath, AstParentKind, AstParentNodeRef};
 
 use super::{ConstantNumber, ConstantValue, ImportMap, JsValue, ObjectPart, WellKnownFunctionKind};
 use crate::{analyzer::is_unresolved, utils::unparen};

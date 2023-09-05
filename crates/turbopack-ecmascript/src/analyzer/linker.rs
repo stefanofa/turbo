@@ -5,7 +5,6 @@ use std::{
 };
 
 use anyhow::Result;
-use swc_core::ecma::ast::Id;
 
 use super::{graph::VarGraph, JsValue};
 

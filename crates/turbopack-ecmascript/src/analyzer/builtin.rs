@@ -1,6 +1,6 @@
 use std::mem::take;
 
-use swc_core::ecma::atoms::js_word;
+use swc_atoms::js_word;
 
 use super::{ConstantNumber, ConstantValue, JsValue, LogicalOperator, ObjectPart};
 

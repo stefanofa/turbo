@@ -17,13 +17,6 @@ use num_bigint::BigInt;
 use num_traits::identities::Zero;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use swc_core::{
-    common::Mark,
-    ecma::{
-        ast::{Id, Ident, Lit},
-        atoms::{Atom, JsWord},
-    },
-};
 use turbo_tasks::Vc;
 use turbopack_core::compile_time_info::CompileTimeDefineValue;
 use url::Url;
@@ -485,8 +478,8 @@ impl From<String> for JsValue {
     }
 }
 
-impl From<swc_core::ecma::ast::Str> for JsValue {
-    fn from(v: swc_core::ecma::ast::Str) -> Self {
+impl From<swc_ecma_ast::Str> for JsValue {
+    fn from(v: swc_ecma_ast::Str) -> Self {
         ConstantValue::Str(v.value.into()).into()
     }
 }
@@ -3252,14 +3245,6 @@ pub mod test_utils {
 mod tests {
     use std::{mem::take, path::PathBuf, time::Instant};
 
-    use swc_core::{
-        common::Mark,
-        ecma::{
-            ast::EsVersion, parser::parse_file_as_program, transforms::base::resolver,
-            visit::VisitMutWith,
-        },
-        testing::{fixture, run_test, NormalizedOutput},
-    };
     use turbo_tasks::{util::FormatDuration, Value};
     use turbopack_core::{
         compile_time_info::CompileTimeInfo,
