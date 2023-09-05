@@ -622,8 +622,8 @@ async fn gen_content_with_visitors(
             for visitor in root_visitors {
                 program.visit_mut_with(&mut visitor.create());
             }
-            program.visit_mut_with(&mut swc_core::ecma::transforms::base::hygiene::hygiene());
-            program.visit_mut_with(&mut swc_core::ecma::transforms::base::fixer::fixer(None));
+            program.visit_mut_with(&mut swc_ecma_transforms::base::hygiene::hygiene());
+            program.visit_mut_with(&mut swc_ecma_transforms::base::fixer::fixer(None));
 
             // we need to remove any shebang before bundling as it's only valid as the first
             // line in a js file (not in a chunk item wrapped in the runtime)

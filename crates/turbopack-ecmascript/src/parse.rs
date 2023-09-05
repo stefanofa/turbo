@@ -1,6 +1,7 @@
 use std::{future::Future, sync::Arc};
 
 use anyhow::{anyhow, Context, Result};
+use swc_common::Globals;
 use swc_ecma_ast::Program;
 use turbo_tasks::{util::WrapFuture, Value, ValueToString, Vc};
 use turbo_tasks_fs::{FileContent, FileSystemPath};
@@ -317,9 +318,9 @@ async fn parse_content(
                     .await?;
             }
 
-            parsed_program.visit_mut_with(
-                &mut swc_core::ecma::transforms::base::helpers::inject_helpers(unresolved_mark),
-            );
+            parsed_program.visit_mut_with(&mut swc_ecma_transforms::base::helpers::inject_helpers(
+                unresolved_mark,
+            ));
 
             let eval_context = EvalContext::new(&parsed_program, unresolved_mark);
 

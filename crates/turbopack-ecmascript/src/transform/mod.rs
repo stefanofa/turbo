@@ -40,7 +40,7 @@ pub enum EcmascriptInputTransform {
         // swc.jsc.transform.react.runtime,
         runtime: Vc<Option<String>>,
     },
-    // These options are subset of swc_core::ecma::transforms::typescript::Config, but
+    // These options are subset of swc_ecma_transforms::typescript::Config, but
     // it doesn't derive `Copy` so repeating values in here
     TypeScript {
         #[serde(default)]
@@ -141,7 +141,7 @@ impl EcmascriptInputTransform {
                 import_source,
                 runtime,
             } => {
-                use swc_core::ecma::transforms::react::{Options, Runtime};
+                use swc_ecma_transforms::react::{Options, Runtime};
                 let runtime = if let Some(runtime) = &*runtime.await? {
                     match runtime.as_str() {
                         "classic" => Runtime::Classic,
@@ -162,7 +162,7 @@ impl EcmascriptInputTransform {
                     development: Some(*development),
                     import_source: import_source.await?.clone_value(),
                     refresh: if *refresh {
-                        Some(swc_core::ecma::transforms::react::RefreshOptions {
+                        Some(swc_ecma_transforms::react::RefreshOptions {
                             refresh_reg: "__turbopack_refresh__.register".to_string(),
                             refresh_sig: "__turbopack_refresh__.signature".to_string(),
                             ..Default::default()
@@ -186,20 +186,20 @@ impl EcmascriptInputTransform {
             EcmascriptInputTransform::CommonJs => {
                 // Explicit type annotation to ensure that we don't duplicate transforms in the
                 // final binary
-                program.visit_mut_with(&mut swc_core::ecma::transforms::module::common_js::<
-                    &dyn Comments,
-                >(
-                    unresolved_mark,
-                    swc_core::ecma::transforms::module::util::Config {
-                        allow_top_level_this: true,
-                        import_interop: Some(
-                            swc_core::ecma::transforms::module::util::ImportInterop::Swc,
-                        ),
-                        ..Default::default()
-                    },
-                    swc_core::ecma::transforms::base::feature::FeatureFlag::all(),
-                    Some(&comments),
-                ));
+                program.visit_mut_with(
+                    &mut swc_ecma_transforms::module::common_js::<&dyn Comments>(
+                        unresolved_mark,
+                        swc_ecma_transforms::module::util::Config {
+                            allow_top_level_this: true,
+                            import_interop: Some(
+                                swc_ecma_transforms::module::util::ImportInterop::Swc,
+                            ),
+                            ..Default::default()
+                        },
+                        swc_ecma_transforms::base::feature::FeatureFlag::all(),
+                        Some(&comments),
+                    ),
+                );
             }
             EcmascriptInputTransform::PresetEnv(env) => {
                 let versions = env.runtime_versions().await?;
@@ -243,7 +243,7 @@ impl EcmascriptInputTransform {
                 // TODO(WEB-1213)
                 use_define_for_class_fields: _use_define_for_class_fields,
             } => {
-                use swc_core::ecma::transforms::typescript::strip_with_config;
+                use swc_ecma_transforms::typescript::strip_with_config;
                 let config = Default::default();
                 program.visit_mut_with(&mut strip_with_config(config, top_level_mark));
             }
@@ -254,7 +254,7 @@ impl EcmascriptInputTransform {
                 // TODO(WEB-1213)
                 use_define_for_class_fields: _use_define_for_class_fields,
             } => {
-                use swc_core::ecma::transforms::proposal::decorators::{decorators, Config};
+                use swc_ecma_transforms::proposal::decorators::{decorators, Config};
                 let config = Config {
                     legacy: *is_legacy,
                     emit_metadata: *emit_decorators_metadata,
