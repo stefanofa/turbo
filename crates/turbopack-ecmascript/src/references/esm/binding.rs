@@ -81,7 +81,7 @@ impl CodeGenerateable for EsmBinding {
             match ast_path.last() {
                 // Shorthand properties get special treatment because we need to rewrite them to
                 // normal key-value pairs.
-                Some(swc_core::ecma::visit::AstParentKind::Prop(PropField::Shorthand)) => {
+                Some(swc_ecma_visit::AstParentKind::Prop(PropField::Shorthand)) => {
                     ast_path.pop();
                     visitors.push(
                         create_visitor!(exact ast_path, visit_mut_prop(prop: &mut Prop) {
@@ -96,7 +96,7 @@ impl CodeGenerateable for EsmBinding {
                     break;
                 }
                 // Any other expression can be replaced with the import accessor.
-                Some(swc_core::ecma::visit::AstParentKind::Expr(_)) => {
+                Some(swc_ecma_visit::AstParentKind::Expr(_)) => {
                     ast_path.pop();
                     visitors.push(
                         create_visitor!(exact ast_path, visit_mut_expr(expr: &mut Expr) {

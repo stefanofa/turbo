@@ -2623,7 +2623,7 @@ enum DetectedDynamicExportType {
 }
 
 fn detect_dynamic_export(p: &Program) -> DetectedDynamicExportType {
-    use swc_core::ecma::visit::{visit_obj_and_computed, Visit, VisitWith};
+    use swc_ecma_visit::{visit_obj_and_computed, Visit, VisitWith};
 
     if let Program::Module(m) = p {
         // Check for imports/exports

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use swc_core::ecma::visit::{AstParentKind, VisitMut};
+use swc_ecma_visit::{AstParentKind, VisitMut};
 use turbo_tasks::{debug::ValueDebugFormat, trace::TraceRawVcs, Value, Vc};
 use turbopack_core::chunk::availability_info::AvailabilityInfo;
 
@@ -69,7 +69,7 @@ pub fn path_to(
 /// path exactly. Otherwise, the visitor will visit the closest matching parent
 /// node in the path.
 ///
-/// Refer to the [swc_core::ecma::visit::VisitMut] trait for a list of all
+/// Refer to the [swc_ecma_visit::VisitMut] trait for a list of all
 /// possible visit methods.
 #[macro_export]
 macro_rules! create_visitor {
@@ -84,12 +84,12 @@ macro_rules! create_visitor {
         impl<T: Fn(&mut swc_ecma_ast::Program) + Send + Sync> $crate::code_gen::VisitorFactory
             for Box<Visitor<T>>
         {
-            fn create<'a>(&'a self) -> Box<dyn swc_core::ecma::visit::VisitMut + Send + Sync + 'a> {
+            fn create<'a>(&'a self) -> Box<dyn swc_ecma_visit::VisitMut + Send + Sync + 'a> {
                 Box::new(&**self)
             }
         }
 
-        impl<'a, T: Fn(&mut swc_ecma_ast::Program) + Send + Sync> swc_core::ecma::visit::VisitMut
+        impl<'a, T: Fn(&mut swc_ecma_ast::Program) + Send + Sync> swc_ecma_visit::VisitMut
             for &'a Visitor<T>
         {
             fn visit_mut_program(&mut self, $arg: &mut swc_ecma_ast::Program) {
@@ -109,7 +109,7 @@ macro_rules! create_visitor {
     };
     ($ast_path:expr, $name:ident($arg:ident: &mut $ty:ident) $b:block) => {
         $crate::create_visitor!(__ $crate::code_gen::path_to(&$ast_path, |n| {
-            matches!(n, swc_core::ecma::visit::AstParentKind::$ty(_))
+            matches!(n, swc_ecma_visit::AstParentKind::$ty(_))
         }), $name($arg: &mut $ty) $b)
     };
     (__ $ast_path:expr, $name:ident($arg:ident: &mut $ty:ident) $b:block) => {{
@@ -120,12 +120,12 @@ macro_rules! create_visitor {
         impl<T: Fn(&mut swc_ecma_ast::$ty) + Send + Sync> $crate::code_gen::VisitorFactory
             for Box<Visitor<T>>
         {
-            fn create<'a>(&'a self) -> Box<dyn swc_core::ecma::visit::VisitMut + Send + Sync + 'a> {
+            fn create<'a>(&'a self) -> Box<dyn swc_ecma_visit::VisitMut + Send + Sync + 'a> {
                 Box::new(&**self)
             }
         }
 
-        impl<'a, T: Fn(&mut swc_ecma_ast::$ty) + Send + Sync> swc_core::ecma::visit::VisitMut
+        impl<'a, T: Fn(&mut swc_ecma_ast::$ty) + Send + Sync> swc_ecma_visit::VisitMut
             for &'a Visitor<T>
         {
             fn $name(&mut self, $arg: &mut swc_ecma_ast::$ty) {

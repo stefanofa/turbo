@@ -3245,6 +3245,7 @@ pub mod test_utils {
 mod tests {
     use std::{mem::take, path::PathBuf, time::Instant};
 
+    use testing::{fixture, run_test};
     use turbo_tasks::{util::FormatDuration, Value};
     use turbopack_core::{
         compile_time_info::CompileTimeInfo,

@@ -603,10 +603,7 @@ impl EcmascriptModuleContent {
 async fn gen_content_with_visitors(
     parsed: Vc<ParseResult>,
     ident: Vc<AssetIdent>,
-    visitors: Vec<(
-        &Vec<swc_core::ecma::visit::AstParentKind>,
-        &dyn VisitorFactory,
-    )>,
+    visitors: Vec<(&Vec<swc_ecma_visit::AstParentKind>, &dyn VisitorFactory)>,
     root_visitors: Vec<&dyn VisitorFactory>,
 ) -> Result<Vc<EcmascriptModuleContent>> {
     let parsed = parsed.await?;
