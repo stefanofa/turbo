@@ -18,6 +18,7 @@ anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 owo-colors = { workspace = true }
 regex = { workspace = true }
+swc = "0.266.0"
 swc_common = "0.32.1"
 swc_ecma_ast = "0.109.1"
 swc_ecma_parser = "0.140.0"
