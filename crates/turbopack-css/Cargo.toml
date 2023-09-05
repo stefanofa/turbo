@@ -17,6 +17,9 @@ indoc = { workspace = true }
 once_cell = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
+swc_css_ast = "0.139.1"
+swc_css_parser = "0.148.1"
+swc_css_visit = { version = "0.138.1", features = ["path"] }
 turbo-tasks = { workspace = true }
 turbo-tasks-fs = { workspace = true }
 turbo-tasks-hash = { workspace = true }
