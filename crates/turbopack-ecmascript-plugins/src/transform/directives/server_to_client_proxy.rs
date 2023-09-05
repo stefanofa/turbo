@@ -1,14 +1,7 @@
-use swc_core::{
-    common::DUMMY_SP,
-    ecma::{
-        ast::{
-            Expr, ExprStmt, Ident, ImportDecl, ImportDefaultSpecifier, ImportSpecifier,
-            KeyValueProp, Lit, Module, ModuleDecl, ModuleItem, ObjectLit, Program, Prop, PropName,
-            PropOrSpread, Stmt, Str,
-        },
-        utils::private_ident,
-    },
-    quote,
+use swc_core::{common::DUMMY_SP, ecma::utils::private_ident, quote};
+use swc_ecma_ast::{
+    Expr, ExprStmt, Ident, ImportDecl, ImportDefaultSpecifier, ImportSpecifier, KeyValueProp, Lit,
+    Module, ModuleDecl, ModuleItem, ObjectLit, Program, Prop, PropName, PropOrSpread, Stmt, Str,
 };
 use turbopack_ecmascript::TURBOPACK_HELPER;
 
