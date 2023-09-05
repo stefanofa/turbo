@@ -34,6 +34,7 @@ swc_ecma_codegen = "0.145.0"
 swc_ecma_parser = "0.140.0"
 swc_ecma_transforms_base = "0.133.0"
 swc_ecma_visit = { version = "0.95.1", features = ["path"] }
+swc_node_comments = "0.19.1"
 tokio = { workspace = true }
 tracing = { workspace = true }
 turbo-tasks = { workspace = true }
