@@ -38,6 +38,7 @@ use parse::{parse, ParseResult};
 use path_visitor::ApplyVisitors;
 pub use references::{AnalyzeEcmascriptModuleResult, TURBOPACK_HELPER};
 pub use static_code::StaticEcmascriptCode;
+use swc_common::GLOBALS;
 pub use transform::{
     CustomTransformer, EcmascriptInputTransform, EcmascriptInputTransforms, OptionTransformPlugin,
     TransformContext, TransformPlugin, UnsupportedServerActionIssue,
@@ -622,8 +623,8 @@ async fn gen_content_with_visitors(
             for visitor in root_visitors {
                 program.visit_mut_with(&mut visitor.create());
             }
-            program.visit_mut_with(&mut swc_ecma_transforms::base::hygiene::hygiene());
-            program.visit_mut_with(&mut swc_ecma_transforms::base::fixer::fixer(None));
+            program.visit_mut_with(&mut swc_ecma_transforms_base::hygiene::hygiene());
+            program.visit_mut_with(&mut swc_ecma_transforms_base::fixer::fixer(None));
 
             // we need to remove any shebang before bundling as it's only valid as the first
             // line in a js file (not in a chunk item wrapped in the runtime)

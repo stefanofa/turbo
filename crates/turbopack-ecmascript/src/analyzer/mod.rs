@@ -18,6 +18,7 @@ use num_traits::identities::Zero;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use swc_atoms::{Atom, JsWord};
+use swc_common::Mark;
 use swc_ecma_ast::*;
 use turbo_tasks::Vc;
 use turbopack_core::compile_time_info::CompileTimeDefineValue;
@@ -3247,7 +3248,11 @@ pub mod test_utils {
 mod tests {
     use std::{mem::take, path::PathBuf, time::Instant};
 
-    use testing::{fixture, run_test};
+    use swc_common::Mark;
+    use swc_ecma_ast::EsVersion;
+    use swc_ecma_parser::parse_file_as_program;
+    use swc_ecma_transforms_base::resolver;
+    use testing::{fixture, run_test, NormalizedOutput};
     use turbo_tasks::{util::FormatDuration, Value};
     use turbopack_core::{
         compile_time_info::CompileTimeInfo,
