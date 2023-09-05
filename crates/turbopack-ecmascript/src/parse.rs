@@ -1,24 +1,7 @@
 use std::{future::Future, sync::Arc};
 
 use anyhow::{anyhow, Context, Result};
-use swc_core::{
-    base::SwcComments,
-    common::{
-        errors::{Handler, HANDLER},
-        input::StringInput,
-        source_map::SourceMapGenConfig,
-        BytePos, FileName, Globals, LineCol, Mark, GLOBALS,
-    },
-    ecma::{
-        ast::{EsVersion, Program},
-        parser::{lexer::Lexer, EsConfig, Parser, Syntax, TsConfig},
-        transforms::base::{
-            helpers::{Helpers, HELPERS},
-            resolver,
-        },
-        visit::VisitMutWith,
-    },
-};
+use swc_ecma_ast::Program;
 use turbo_tasks::{util::WrapFuture, Value, ValueToString, Vc};
 use turbo_tasks_fs::{FileContent, FileSystemPath};
 use turbo_tasks_hash::hash_xxh3_hash64;
@@ -53,7 +36,7 @@ pub enum ParseResult {
         #[turbo_tasks(debug_ignore, trace_ignore)]
         globals: Arc<Globals>,
         #[turbo_tasks(debug_ignore, trace_ignore)]
-        source_map: Arc<swc_core::common::SourceMap>,
+        source_map: Arc<swc_common::SourceMap>,
     },
     Unparseable,
     NotFound,
@@ -74,7 +57,7 @@ pub struct ParseResultSourceMap {
     /// to source locations. I don't know what it is, really, but it's not
     /// that.
     #[turbo_tasks(debug_ignore, trace_ignore)]
-    source_map: Arc<swc_core::common::SourceMap>,
+    source_map: Arc<swc_common::SourceMap>,
 
     /// The position mappings that can generate a real source map given a (SWC)
     /// SourceMap.
@@ -89,10 +72,7 @@ impl PartialEq for ParseResultSourceMap {
 }
 
 impl ParseResultSourceMap {
-    pub fn new(
-        source_map: Arc<swc_core::common::SourceMap>,
-        mappings: Vec<(BytePos, LineCol)>,
-    ) -> Self {
+    pub fn new(source_map: Arc<swc_common::SourceMap>, mappings: Vec<(BytePos, LineCol)>) -> Self {
         ParseResultSourceMap {
             source_map,
             mappings,
@@ -225,7 +205,7 @@ async fn parse_content(
     ty: EcmascriptModuleAssetType,
     transforms: &[EcmascriptInputTransform],
 ) -> Result<Vc<ParseResult>> {
-    let source_map: Arc<swc_core::common::SourceMap> = Default::default();
+    let source_map: Arc<swc_common::SourceMap> = Default::default();
     let handler = Handler::with_emitter(
         true,
         false,

@@ -485,7 +485,7 @@ impl EcmascriptChunkItem for RequireContextChunkItem {
             shebang: None,
         };
 
-        let source_map: Arc<swc_core::common::SourceMap> = Default::default();
+        let source_map: Arc<swc_common::SourceMap> = Default::default();
         let mut bytes: Vec<u8> = vec![];
         let mut emitter = Emitter {
             cfg: swc_core::ecma::codegen::Config::default(),

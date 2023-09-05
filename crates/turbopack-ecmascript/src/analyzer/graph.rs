@@ -5,9 +5,9 @@ use std::{
 };
 
 use swc_atoms::js_word;
-use swc_common::{Mark, Span, SyntaxContext};
+use swc_common::{pass::AstNodePath, Mark, Span, SyntaxContext};
 use swc_ecma_ast::{op, BinExpr, Expr, UnaryExpr, *};
-use swc_ecma_visit::{AstNodePath, AstParentKind, AstParentNodeRef};
+use swc_ecma_visit::{fields::*, AstParentKind, AstParentNodeRef, VisitAstPath};
 
 use super::{ConstantNumber, ConstantValue, ImportMap, JsValue, ObjectPart, WellKnownFunctionKind};
 use crate::{analyzer::is_unresolved, utils::unparen};

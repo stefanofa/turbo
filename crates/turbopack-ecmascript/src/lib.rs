@@ -38,13 +38,6 @@ use parse::{parse, ParseResult};
 use path_visitor::ApplyVisitors;
 pub use references::{AnalyzeEcmascriptModuleResult, TURBOPACK_HELPER};
 pub use static_code::StaticEcmascriptCode;
-use swc_core::{
-    common::GLOBALS,
-    ecma::{
-        codegen::{text_writer::JsWriter, Emitter},
-        visit::{VisitMutWith, VisitMutWithPath},
-    },
-};
 pub use transform::{
     CustomTransformer, EcmascriptInputTransform, EcmascriptInputTransforms, OptionTransformPlugin,
     TransformContext, TransformPlugin, UnsupportedServerActionIssue,

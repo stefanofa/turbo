@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, fmt::Display, mem::take};
 
 use indexmap::{IndexMap, IndexSet};
 use once_cell::sync::Lazy;
-use swc_atoms::js_word;
+use swc_atoms::{js_word, JsWord};
 
 use super::{JsValue, ModuleValue};
 use crate::utils::unparen;
