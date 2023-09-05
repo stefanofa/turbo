@@ -30,6 +30,9 @@ swc_ecma_ast = "0.109.1"
 swc_ecma_codegen = "0.145.0"
 swc_ecma_minifier = "0.187.0"
 swc_ecma_parser = "0.140.0"
+swc_ecma_transforms_base = { version = "0.133.0", features = [
+  "concurrent-renamer",
+] }
 swc_ecma_visit = "0.95.1"
 
 turbo-tasks = { workspace = true }
