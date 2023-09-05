@@ -1,6 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use swc_core::ecma::{ast::Program, transforms::base::resolver, visit::VisitMutWith};
+use swc_ecma_ast::Program;
+use swc_ecma_visit::VisitMutWith;
 use turbo_tasks::Vc;
 use turbopack_ecmascript::{CustomTransformer, TransformContext};
 
