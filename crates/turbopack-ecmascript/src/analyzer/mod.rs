@@ -18,7 +18,7 @@ use num_traits::identities::Zero;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use swc_atoms::{Atom, JsWord};
-use swc_ecma_ast::{Id, Lit};
+use swc_ecma_ast::*;
 use turbo_tasks::Vc;
 use turbopack_core::compile_time_info::CompileTimeDefineValue;
 use url::Url;
