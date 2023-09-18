@@ -5,7 +5,7 @@ use std::{
 };
 
 use swc_atoms::js_word;
-use swc_common::{pass::AstNodePath, Mark, Span, SyntaxContext};
+use swc_common::{pass::AstNodePath, Mark, Span, Spanned, SyntaxContext};
 use swc_ecma_ast::{op, BinExpr, Expr, UnaryExpr, *};
 use swc_ecma_visit::{fields::*, AstParentKind, AstParentNodeRef, VisitAstPath, VisitWithPath};
 
