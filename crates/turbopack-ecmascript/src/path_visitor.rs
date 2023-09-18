@@ -163,11 +163,10 @@ mod tests {
             ast::*,
             codegen::{text_writer::JsWriter, Emitter},
             parser::parse_file_as_module,
-            transforms::base::resolver,
             visit::{fields::*, AstParentKind, VisitMut, VisitMutWith, VisitMutWithPath},
         },
-        testing::run_test,
     };
+    use swc_ecma_transforms_base::resolver;
 
     use super::{ApplyVisitors, VisitorFactory};
 
