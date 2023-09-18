@@ -6,7 +6,7 @@ use swc_ecma_ast::{
     ArrowExpr, AssignOp, BinExpr, BinaryOp, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt, FnExpr,
     Lit, Module, ModuleItem, Program, Script, Stmt,
 };
-use swc_ecma_visit::Visit;
+use swc_ecma_visit::{Visit, VisitWith};
 use turbo_tasks::{Value, Vc};
 use turbo_tasks_fs::FileSystemPath;
 use turbopack_core::source::Source;
