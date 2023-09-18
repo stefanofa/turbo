@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use anyhow::Result;
+use swc_common::DUMMY_SP;
 use swc_core::quote;
 use swc_ecma_ast::{Expr, Ident};
 use turbo_tasks::Vc;
