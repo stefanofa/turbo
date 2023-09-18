@@ -1,6 +1,10 @@
 use std::{cell::RefCell, collections::HashMap, mem::take};
 
-use swc_common::{comments::Comment, BytePos};
+use swc_common::{
+    comments::{Comment, Comments},
+    BytePos,
+};
+use swc_node_comments::SwcComments;
 
 /// Immutable version of [SwcComments] which doesn't allow mutation. The `take`
 /// variants are still implemented, but do not mutate the content. They are used
