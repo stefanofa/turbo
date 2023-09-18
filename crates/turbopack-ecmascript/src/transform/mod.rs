@@ -2,9 +2,11 @@ use std::{fmt::Debug, hash::Hash, sync::Arc};
 
 use anyhow::Result;
 use async_trait::async_trait;
-use swc_common::chain;
+use swc_common::{chain, comments::Comments, Mark, SourceMap};
 use swc_ecma_ast::{Module, ModuleItem, Program, Script};
 use swc_ecma_preset_env::Targets;
+use swc_ecma_transforms_react::react;
+use swc_node_comments::SwcComments;
 use turbo_tasks::{ValueDefault, Vc};
 use turbo_tasks_fs::FileSystemPath;
 use turbopack_core::{
@@ -129,7 +131,7 @@ impl EcmascriptInputTransform {
                 import_source,
                 runtime,
             } => {
-                use swc_ecma_transforms::react::{Options, Runtime};
+                use swc_ecma_transforms_react::{Options, Runtime};
                 let runtime = if let Some(runtime) = &*runtime.await? {
                     match runtime.as_str() {
                         "classic" => Runtime::Classic,
@@ -150,7 +152,7 @@ impl EcmascriptInputTransform {
                     development: Some(*development),
                     import_source: import_source.await?.clone_value(),
                     refresh: if *refresh {
-                        Some(swc_ecma_transforms::react::RefreshOptions {
+                        Some(swc_ecma_transforms_react::RefreshOptions {
                             refresh_reg: "__turbopack_refresh__.register".to_string(),
                             refresh_sig: "__turbopack_refresh__.signature".to_string(),
                             ..Default::default()
@@ -175,16 +177,16 @@ impl EcmascriptInputTransform {
                 // Explicit type annotation to ensure that we don't duplicate transforms in the
                 // final binary
                 program.visit_mut_with(
-                    &mut swc_ecma_transforms::module::common_js::<&dyn Comments>(
+                    &mut swc_ecma_transforms_module::common_js::<&dyn Comments>(
                         unresolved_mark,
-                        swc_ecma_transforms::module::util::Config {
+                        swc_ecma_transforms_module::util::Config {
                             allow_top_level_this: true,
                             import_interop: Some(
-                                swc_ecma_transforms::module::util::ImportInterop::Swc,
+                                swc_ecma_transforms_module::util::ImportInterop::Swc,
                             ),
                             ..Default::default()
                         },
-                        swc_ecma_transforms::base::feature::FeatureFlag::all(),
+                        swc_ecma_transforms_base::feature::FeatureFlag::all(),
                         Some(&comments),
                     ),
                 );
