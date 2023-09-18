@@ -1,6 +1,7 @@
 use std::mem::replace;
 
 use anyhow::Result;
+use swc_core::quote;
 use swc_ecma_ast::{
     ClassDecl, Decl, DefaultDecl, ExportDecl, ExportDefaultDecl, ExportDefaultExpr, FnDecl, Ident,
     ModuleDecl, ModuleItem, Stmt,
