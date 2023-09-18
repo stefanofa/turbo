@@ -167,6 +167,7 @@ mod tests {
         },
     };
     use swc_ecma_transforms_base::resolver;
+    use testing::run_test;
 
     use super::{ApplyVisitors, VisitorFactory};
 
