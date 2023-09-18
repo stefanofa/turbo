@@ -1,7 +1,7 @@
 use anyhow::Result;
 use swc_common::errors::{Handler, HANDLER};
 use swc_ecma_ast::*;
-use swc_ecma_visit::Visit;
+use swc_ecma_visit::{Visit, VisitWith};
 use turbo_tasks::{Value, Vc};
 use turbopack_core::{
     reference::{ModuleReference, ModuleReferences},
