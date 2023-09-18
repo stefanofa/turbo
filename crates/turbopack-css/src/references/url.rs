@@ -1,4 +1,6 @@
 use anyhow::Result;
+use swc_common::DUMMY_SP;
+use swc_css_ast::{Str, UrlValue};
 use turbo_tasks::{Value, ValueToString, Vc};
 use turbopack_core::{
     chunk::ChunkingContext,
