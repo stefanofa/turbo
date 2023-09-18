@@ -1,6 +1,7 @@
 use anyhow::Error;
 use rustc_hash::FxHashSet;
-use swc_ecma_ast::Module;
+use swc_atoms::JsWord;
+use swc_ecma_ast::{Module, ModuleDecl, ModuleItem};
 
 use super::graph::find_turbopack_chunk_id_in_asserts;
 
