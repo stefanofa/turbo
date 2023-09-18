@@ -4,7 +4,10 @@ use anyhow::{Context, Result};
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use swc_atoms::JsWord;
+use swc_common::SourceMap;
 use swc_css_ast::Stylesheet;
+use swc_css_modules::CssClassName;
 use turbo_tasks::{ValueToString, Vc};
 use turbo_tasks_fs::{FileContent, FileSystemPath};
 use turbopack_core::{
