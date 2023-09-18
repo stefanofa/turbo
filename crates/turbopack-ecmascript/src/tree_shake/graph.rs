@@ -9,7 +9,7 @@ use petgraph::{
     prelude::DiGraphMap,
 };
 use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
-use swc_atoms::JsWord;
+use swc_atoms::{js_word, JsWord};
 use swc_common::DUMMY_SP;
 use swc_ecma_ast::{
     op, ClassDecl, Decl, ExportDecl, ExportNamedSpecifier, ExportSpecifier, Expr, ExprStmt, FnDecl,
@@ -17,6 +17,7 @@ use swc_ecma_ast::{
     ModuleDecl, ModuleExportName, ModuleItem, NamedExport, ObjectLit, Prop, PropName, PropOrSpread,
     Stmt, VarDecl,
 };
+use swc_ecma_utils::{find_pat_ids, quote_ident};
 
 use super::{
     util::{ids_captured_by, ids_used_by, ids_used_by_ignoring_nested},
