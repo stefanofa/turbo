@@ -12,6 +12,7 @@ use swc_ecma_transforms_base::{
     helpers::{Helpers, HELPERS},
     resolver,
 };
+use swc_ecma_visit::VisitMutWith;
 use swc_node_comments::SwcComments;
 use turbo_tasks::{util::WrapFuture, Value, ValueToString, Vc};
 use turbo_tasks_fs::{FileContent, FileSystemPath};
