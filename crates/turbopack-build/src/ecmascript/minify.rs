@@ -1,24 +1,19 @@
 use std::{io::Write, sync::Arc};
 
 use anyhow::{bail, Context, Result};
-use swc_core::{
-    base::{try_with_handler, Compiler},
-    common::{
-        comments::{Comments, SingleThreadedComments},
-        BytePos, FileName, FilePathMapping, LineCol, Mark, SourceMap as SwcSourceMap, GLOBALS,
-    },
-    ecma::{
-        self,
-        ast::{EsVersion, Program},
-        codegen::{
-            text_writer::{self, JsWriter, WriteJs},
-            Emitter, Node,
-        },
-        minifier::option::{ExtraOptions, MinifyOptions},
-        parser::{lexer::Lexer, Parser, StringInput, Syntax},
-        visit::FoldWith,
-    },
+use swc::base::{try_with_handler, Compiler};
+use swc_common::{
+    comments::{Comments, SingleThreadedComments},
+    BytePos, FileName, FilePathMapping, LineCol, Mark, SourceMap as SwcSourceMap, GLOBALS,
 };
+use swc_ecma_ast::{EsVersion, Program};
+use swc_ecma_codegen::{
+    text_writer::{self, JsWriter, WriteJs},
+    Emitter, Node,
+};
+use swc_ecma_minifier::option::{ExtraOptions, MinifyOptions};
+use swc_ecma_parser::{lexer::Lexer, Parser, StringInput, Syntax};
+use swc_ecma_visit::FoldWith;
 use turbo_tasks::Vc;
 use turbo_tasks_fs::FileSystemPath;
 use turbopack_core::{
