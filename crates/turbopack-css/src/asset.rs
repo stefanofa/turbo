@@ -1,4 +1,7 @@
 use anyhow::Result;
+use swc_common::{Globals, GLOBALS};
+use swc_css_ast::{AtRule, AtRulePrelude, Rule};
+use swc_css_codegen::{writer::basic::BasicCssWriter, CodeGenerator};
 use turbo_tasks::{TryJoinIterExt, Value, ValueToString, Vc};
 use turbo_tasks_fs::FileSystemPath;
 use turbopack_core::{
