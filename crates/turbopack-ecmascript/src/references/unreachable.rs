@@ -1,4 +1,5 @@
 use anyhow::Result;
+use swc_core::quote;
 use turbo_tasks::Vc;
 
 use super::AstPath;
