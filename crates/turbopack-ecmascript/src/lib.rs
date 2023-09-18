@@ -39,6 +39,7 @@ use path_visitor::ApplyVisitors;
 pub use references::{AnalyzeEcmascriptModuleResult, TURBOPACK_HELPER};
 pub use static_code::StaticEcmascriptCode;
 use swc_common::GLOBALS;
+use swc_ecma_codegen::{text_writer::JsWriter, Emitter};
 pub use transform::{
     CustomTransformer, EcmascriptInputTransform, EcmascriptInputTransforms, OptionTransformPlugin,
     TransformContext, TransformPlugin, UnsupportedServerActionIssue,

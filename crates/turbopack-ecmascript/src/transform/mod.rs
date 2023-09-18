@@ -2,6 +2,9 @@ use std::{fmt::Debug, hash::Hash, sync::Arc};
 
 use anyhow::Result;
 use async_trait::async_trait;
+use swc_common::chain;
+use swc_ecma_ast::{Module, ModuleItem, Program, Script};
+use swc_ecma_preset_env::Targets;
 use turbo_tasks::{ValueDefault, Vc};
 use turbo_tasks_fs::FileSystemPath;
 use turbopack_core::{
