@@ -3252,6 +3252,7 @@ mod tests {
     use swc_ecma_ast::EsVersion;
     use swc_ecma_parser::parse_file_as_program;
     use swc_ecma_transforms_base::resolver;
+    use swc_ecma_visit::VisitMutWith;
     use testing::{fixture, run_test, NormalizedOutput};
     use turbo_tasks::{util::FormatDuration, Value};
     use turbopack_core::{
