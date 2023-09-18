@@ -5,13 +5,11 @@ use std::{
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use swc_core::{
-    common::DUMMY_SP,
-    ecma::ast::{
-        self, ComputedPropName, Expr, ExprStmt, Ident, KeyValueProp, Lit, MemberExpr, MemberProp,
-        ModuleItem, ObjectLit, Program, Prop, PropName, PropOrSpread, Script, Stmt, Str,
-    },
-    quote, quote_expr,
+use swc_common::DUMMY_SP;
+use swc_core::{quote, quote_expr};
+use swc_ecma_ast::{
+    self as ast, ComputedPropName, Expr, ExprStmt, Ident, KeyValueProp, Lit, MemberExpr,
+    MemberProp, ModuleItem, ObjectLit, Program, Prop, PropName, PropOrSpread, Script, Stmt, Str,
 };
 use turbo_tasks::{trace::TraceRawVcs, ValueToString, Vc};
 use turbopack_core::{
