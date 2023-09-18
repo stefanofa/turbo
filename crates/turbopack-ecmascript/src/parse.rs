@@ -1,8 +1,14 @@
 use std::{future::Future, sync::Arc};
 
 use anyhow::{anyhow, Context, Result};
-use swc_common::Globals;
-use swc_ecma_ast::Program;
+use swc_common::{
+    errors::Handler, source_map::SourceMapGenConfig, BytePos, FileName, Globals, LineCol, Mark,
+    GLOBALS,
+};
+use swc_ecma_ast::{EsVersion, Program};
+use swc_ecma_parser::{lexer::Lexer, EsConfig, Parser, StringInput, Syntax, TsConfig};
+use swc_ecma_transforms_base::helpers::Helpers;
+use swc_node_comments::SwcComments;
 use turbo_tasks::{util::WrapFuture, Value, ValueToString, Vc};
 use turbo_tasks_fs::{FileContent, FileSystemPath};
 use turbo_tasks_hash::hash_xxh3_hash64;
