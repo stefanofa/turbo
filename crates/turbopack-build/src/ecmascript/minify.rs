@@ -1,7 +1,7 @@
 use std::{io::Write, sync::Arc};
 
 use anyhow::{bail, Context, Result};
-use swc::base::{try_with_handler, Compiler};
+use swc::{try_with_handler, Compiler};
 use swc_common::{
     comments::{Comments, SingleThreadedComments},
     BytePos, FileName, FilePathMapping, LineCol, Mark, SourceMap as SwcSourceMap, GLOBALS,
@@ -72,12 +72,11 @@ async fn perform_minify(path: Vc<FileSystemPath>, code_vc: Vc<Code>) -> Result<V
             let top_level_mark = Mark::new();
 
             Ok(compiler.run_transform(handler, false, || {
-                let mut program =
-                    program.fold_with(&mut swc_core::ecma::transforms::base::resolver(
-                        unresolved_mark,
-                        top_level_mark,
-                        false,
-                    ));
+                let mut program = program.fold_with(&mut swc_ecma_transforms_base::resolver(
+                    unresolved_mark,
+                    top_level_mark,
+                    false,
+                ));
 
                 program = swc_ecma_minifier::optimize(
                     program,
@@ -95,7 +94,7 @@ async fn perform_minify(path: Vc<FileSystemPath>, code_vc: Vc<Code>) -> Result<V
                     },
                 );
 
-                program.fold_with(&mut ecma::transforms::base::fixer::fixer(Some(
+                program.fold_with(&mut swc_ecma_transforms_base::fixer::fixer(Some(
                     &comments as &dyn Comments,
                 )))
             }))
