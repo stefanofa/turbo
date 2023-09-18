@@ -4,17 +4,7 @@ use anyhow::{Context, Result};
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use swc_core::{
-    common::{
-        errors::Handler, source_map::SourceMapGenConfig, BytePos, FileName, LineCol, SourceMap,
-    },
-    css::{
-        ast::Stylesheet,
-        modules::{CssClassName, TransformConfig},
-        parser::{parse_file, parser::ParserConfig},
-    },
-    ecma::atoms::JsWord,
-};
+use swc_css_ast::Stylesheet;
 use turbo_tasks::{ValueToString, Vc};
 use turbo_tasks_fs::{FileContent, FileSystemPath};
 use turbopack_core::{
