@@ -1,10 +1,6 @@
 use anyhow::{anyhow, bail, Result};
 use lazy_static::lazy_static;
-use swc_core::{
-    common::DUMMY_SP,
-    ecma::ast::{self, Expr, ExprStmt, Ident, Lit, ModuleItem, Program, Script, Stmt},
-    quote,
-};
+use swc_ecma_ast::{self as ast, Expr, ExprStmt, Ident, Lit, ModuleItem, Program, Script, Stmt};
 use turbo_tasks::{Value, ValueToString, Vc};
 use turbopack_core::{
     chunk::{
