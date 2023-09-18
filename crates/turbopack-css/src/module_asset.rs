@@ -387,7 +387,7 @@ fn generate_minimal_source_map(filename: String, source: String) -> Vc<ParseResu
         pos += line.len() as u32;
     }
     let sm: Arc<SourceMap> = Default::default();
-    sm.new_source_file(Fileame::Custom(filename), source);
+    sm.new_source_file(FileName::Custom(filename), source);
     let map = ParseResultSourceMap::new(sm, mappings);
     map.cell()
 }
