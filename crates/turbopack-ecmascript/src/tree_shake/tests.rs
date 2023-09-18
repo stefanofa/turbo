@@ -254,13 +254,12 @@ impl super::merge::Load for SingleModuleLoader<'_> {
     }
 }
 
-fn print<N: swc_core::ecma::codegen::Node>(cm: &Arc<SourceMap>, nodes: &[&N]) -> String {
+fn print<N: swc_ecma_codegen::Node>(cm: &Arc<SourceMap>, nodes: &[&N]) -> String {
     let mut buf = vec![];
 
     {
-        let mut emitter = swc_core::ecma::codegen::Emitter {
-            cfg: swc_core::ecma::codegen::Config::default()
-                .with_emit_assert_for_import_attributes(true),
+        let mut emitter = swc_ecma_codegen::Emitter {
+            cfg: swc_ecma_codegen::Config::default().with_emit_assert_for_import_attributes(true),
             cm: cm.clone(),
             comments: None,
             wr: Box::new(JsWriter::new(cm.clone(), "\n", &mut buf, None)),
