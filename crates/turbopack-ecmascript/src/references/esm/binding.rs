@@ -1,14 +1,9 @@
 use anyhow::Result;
-use swc_core::{
-    common::DUMMY_SP,
-    ecma::{
-        ast::{
-            ComputedPropName, Expr, Ident, KeyValueProp, Lit, MemberExpr, MemberProp, Prop,
-            PropName, Str,
-        },
-        visit::fields::PropField,
-    },
+use swc_common::DUMMY_SP;
+use swc_ecma_ast::{
+    ComputedPropName, Expr, Ident, KeyValueProp, Lit, MemberExpr, MemberProp, Prop, PropName, Str,
 };
+use swc_ecma_visit::fields::PropField;
 use turbo_tasks::Vc;
 
 use super::EsmAssetReference;
