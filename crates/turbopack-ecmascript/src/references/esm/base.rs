@@ -1,5 +1,7 @@
 use anyhow::{anyhow, bail, Result};
 use lazy_static::lazy_static;
+use swc_common::DUMMY_SP;
+use swc_core::quote;
 use swc_ecma_ast::{self as ast, Expr, ExprStmt, Ident, Lit, ModuleItem, Program, Script, Stmt};
 use turbo_tasks::{Value, ValueToString, Vc};
 use turbopack_core::{
