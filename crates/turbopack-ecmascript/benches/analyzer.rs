@@ -9,6 +9,7 @@ use swc_core::{
         visit::VisitMutWith,
     },
 };
+use swc_ecma_transforms_base::resolver;
 use turbo_tasks::Value;
 use turbo_tasks_testing::VcStorage;
 use turbopack_core::{
