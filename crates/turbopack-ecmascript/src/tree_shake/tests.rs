@@ -9,6 +9,7 @@ use anyhow::Error;
 use indexmap::IndexSet;
 use rustc_hash::FxHasher;
 use serde::Deserialize;
+use testing::fixture;
 
 use super::{
     graph::{
