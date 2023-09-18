@@ -10,7 +10,7 @@ use indexmap::IndexSet;
 use rustc_hash::FxHasher;
 use serde::Deserialize;
 use swc_atoms::JsWord;
-use swc_common::SourceMap;
+use swc_common::{util::take::Take, SourceMap};
 use swc_ecma_ast::{EsVersion, Id, Module};
 use swc_ecma_codegen::text_writer::JsWriter;
 use swc_ecma_parser::parse_file_as_module;
