@@ -6,7 +6,6 @@ use swc_core::{
     ecma::{
         ast::{EsVersion, Program},
         parser::parse_file_as_program,
-        transforms::base::resolver,
         visit::VisitMutWith,
     },
 };
