@@ -9,6 +9,7 @@ use swc_ecma_transforms_base::{
     assumptions::Assumptions, feature::FeatureFlag, helpers::inject_helpers,
 };
 use swc_ecma_transforms_react::react;
+use swc_ecma_visit::{FoldWith, VisitMutWith};
 use swc_node_comments::SwcComments;
 use turbo_tasks::{ValueDefault, Vc};
 use turbo_tasks_fs::FileSystemPath;
