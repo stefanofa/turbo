@@ -79,7 +79,7 @@ async fn perform_minify(path: Vc<FileSystemPath>, code_vc: Vc<Code>) -> Result<V
                         false,
                     ));
 
-                program = swc_core::ecma::minifier::optimize(
+                program = swc_ecma_minifier::optimize(
                     program,
                     cm.clone(),
                     Some(&comments),
