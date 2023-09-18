@@ -9,7 +9,7 @@ use swc_common::{
     errors::Handler, source_map::SourceMapGenConfig, BytePos, FileName, LineCol, SourceMap,
 };
 use swc_css_ast::Stylesheet;
-use swc_css_modules::CssClassName;
+use swc_css_modules::{CssClassName, TransformConfig};
 use swc_css_parser::{parse_file, parser::ParserConfig};
 use turbo_tasks::{ValueToString, Vc};
 use turbo_tasks_fs::{FileContent, FileSystemPath};
@@ -214,7 +214,7 @@ async fn parse_content(
                 .as_str();
             // Truncate this as u32 so it's formated as 8-character hex in the suffic below
             let path_hash = turbo_tasks_hash::hash_xxh3_hash64(ident_str) as u32;
-            let result = swc_core::css::modules::compile(
+            let result = swc_css_modules::compile(
                 &mut parsed_stylesheet,
                 // TODO swc_css_modules should take `impl TransformConfig + '_`
                 ModuleTransformConfig {
