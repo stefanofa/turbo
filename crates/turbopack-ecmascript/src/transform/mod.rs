@@ -5,6 +5,9 @@ use async_trait::async_trait;
 use swc_common::{chain, comments::Comments, Mark, SourceMap};
 use swc_ecma_ast::{Module, ModuleItem, Program, Script};
 use swc_ecma_preset_env::Targets;
+use swc_ecma_transforms_base::{
+    assumptions::Assumptions, feature::FeatureFlag, helpers::inject_helpers,
+};
 use swc_ecma_transforms_react::react;
 use swc_node_comments::SwcComments;
 use turbo_tasks::{ValueDefault, Vc};
@@ -219,7 +222,7 @@ impl EcmascriptInputTransform {
                 // Explicit type annotation to ensure that we don't duplicate transforms in the
                 // final binary
                 *program = module_program.fold_with(&mut chain!(
-                    preset_env::preset_env::<&'_ dyn Comments>(
+                    swc_ecma_preset_env::preset_env::<&'_ dyn Comments>(
                         top_level_mark,
                         Some(&comments),
                         config,
@@ -233,7 +236,7 @@ impl EcmascriptInputTransform {
                 // TODO(WEB-1213)
                 use_define_for_class_fields: _use_define_for_class_fields,
             } => {
-                use swc_ecma_transforms::typescript::strip_with_config;
+                use swc_ecma_transforms_typescript::strip_with_config;
                 let config = Default::default();
                 program.visit_mut_with(&mut strip_with_config(config, top_level_mark));
             }
@@ -244,7 +247,7 @@ impl EcmascriptInputTransform {
                 // TODO(WEB-1213)
                 use_define_for_class_fields: _use_define_for_class_fields,
             } => {
-                use swc_ecma_transforms::proposal::decorators::{decorators, Config};
+                use swc_ecma_transforms_proposal::decorators::{decorators, Config};
                 let config = Config {
                     legacy: *is_legacy,
                     emit_metadata: *emit_decorators_metadata,
