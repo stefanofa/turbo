@@ -9,6 +9,8 @@ use petgraph::{
     prelude::DiGraphMap,
 };
 use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
+use swc_atoms::JsWord;
+use swc_common::DUMMY_SP;
 use swc_ecma_ast::{
     op, ClassDecl, Decl, ExportDecl, ExportNamedSpecifier, ExportSpecifier, Expr, ExprStmt, FnDecl,
     Id, Ident, ImportDecl, ImportNamedSpecifier, ImportSpecifier, KeyValueProp, Lit, Module,
