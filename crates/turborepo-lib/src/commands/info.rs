@@ -3,11 +3,12 @@ use turborepo_repository::{package_json::PackageJson, package_manager::PackageMa
 use turborepo_ui::GREY;
 
 use crate::{
+    cli,
     commands::CommandBase,
     package_graph::{PackageGraph, WorkspaceName, WorkspaceNode},
 };
 
-pub fn run(base: &mut CommandBase, workspace: Option<&str>) -> Result<()> {
+pub fn run(base: &mut CommandBase, workspace: Option<&str>) -> Result<(), cli::Error> {
     let root_package_json = PackageJson::load(&base.repo_root.join_component("package.json"))?;
 
     let package_manager =
@@ -24,7 +25,7 @@ pub fn run(base: &mut CommandBase, workspace: Option<&str>) -> Result<()> {
     }
 }
 
-fn print_repo_details(package_graph: &PackageGraph) -> Result<()> {
+fn print_repo_details(package_graph: &PackageGraph) -> Result<(), cli::Error> {
     // We subtract 1 for the root workspace
     println!("{} packages found in workspace\n", package_graph.len() - 1);
 
@@ -45,7 +46,10 @@ fn print_repo_details(package_graph: &PackageGraph) -> Result<()> {
     Ok(())
 }
 
-fn print_workspace_details(package_graph: &PackageGraph, workspace_name: &str) -> Result<()> {
+fn print_workspace_details(
+    package_graph: &PackageGraph,
+    workspace_name: &str,
+) -> Result<(), cli::Error> {
     let workspace_node = match workspace_name {
         "//" => WorkspaceNode::Root,
         name => WorkspaceNode::Workspace(WorkspaceName::Other(name.to_string())),

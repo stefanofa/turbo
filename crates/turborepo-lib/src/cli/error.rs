@@ -4,8 +4,9 @@ use thiserror::Error;
 use turbopath::AbsoluteSystemPathBuf;
 
 use crate::{
-    commands::{bin, prune},
+    commands::{bin, generate, prune},
     daemon::DaemonError,
+    package_graph,
     rewrite_json::RewriteError,
 };
 
@@ -34,14 +35,22 @@ pub enum Error {
         error: io::Error,
     },
     #[error(transparent)]
+    BuildPackageGraph(#[from] package_graph::builder::Error),
+    #[error(transparent)]
     Rewrite(#[from] RewriteError),
     #[error(transparent)]
     Auth(#[from] turborepo_auth::Error),
     #[error(transparent)]
     Daemon(#[from] DaemonError),
     #[error(transparent)]
+    Generate(#[from] generate::Error),
+    #[error(transparent)]
     Prune(#[from] prune::Error),
+    #[error(transparent)]
+    PackageJson(#[from] turborepo_repository::package_json::Error),
+    #[error(transparent)]
+    PackageManager(#[from] turborepo_repository::package_manager::Error),
     // Temporary to prevent having to move all of the errors from anyhow to thiserror at once.
     #[error(transparent)]
-    Anyhow(#[from] anyhow::Error),
+    Run(anyhow::Error),
 }

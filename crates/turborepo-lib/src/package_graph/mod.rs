@@ -12,7 +12,7 @@ use turborepo_repository::{package_json::PackageJson, package_manager::PackageMa
 
 use crate::graph;
 
-mod builder;
+pub(crate) mod builder;
 
 pub use builder::{Error, PackageGraphBuilder};
 
