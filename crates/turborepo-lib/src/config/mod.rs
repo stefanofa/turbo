@@ -61,4 +61,16 @@ pub enum Error {
     ExtendFromNonRoot,
     #[error("No \"extends\" key found")]
     NoExtends,
+    #[error("Failed to create APIClient: {0}")]
+    ApiClient(#[source] turborepo_api_client::Error),
+    #[error("{0} is not UTF8.")]
+    Encoding(String),
+    #[error("TURBO_SIGNATURE should be either 1 or 0.")]
+    InvalidSignature,
+    #[error("TURBO_REMOTE_CACHE_ENABLED should be either 1 or 0.")]
+    InvalidRemoteCacheEnabled,
+    #[error("TURBO_REMOTE_CACHE_TIMEOUT: error parsing timeout.")]
+    InvalidRemoteCacheTimeout(#[source] std::num::ParseIntError),
+    #[error("TURBO_PREFLIGHT should be either 1 or 0.")]
+    InvalidPreflight,
 }

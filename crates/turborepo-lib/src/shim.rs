@@ -36,6 +36,14 @@ pub enum Error {
     Cli(#[from] cli::Error),
     #[error(transparent)]
     Inference(#[from] turborepo_repository::inference::Error),
+    #[error("failed to execute local turbo process")]
+    LocalTurboProcess(#[source] std::io::Error),
+    #[error("failed to resolve local turbo path: {0}")]
+    LocalTurboPath(String),
+    #[error("failed to resolve repository root: {0}")]
+    RepoRootPath(AbsoluteSystemPathBuf),
+    #[error(transparent)]
+    Path(#[from] turbopath::PathError),
 }
 
 // all arguments that result in a stdout that much be directly parsable and
@@ -501,7 +509,9 @@ fn spawn_local_turbo(
     local_turbo_state: LocalTurboState,
     mut shim_args: ShimArgs,
 ) -> Result<i32, Error> {
-    let local_turbo_path = fs_canonicalize(&local_turbo_state.bin_path)?;
+    let local_turbo_path = fs_canonicalize(&local_turbo_state.bin_path).map_err(|_| {
+        Error::LocalTurboPath(local_turbo_state.bin_path.to_string_lossy().to_string())
+    })?;
     debug!(
         "Running local turbo binary in {}\n",
         local_turbo_path.display()
@@ -520,7 +530,9 @@ fn spawn_local_turbo(
         "supports_skip_infer_and_single_package {:?}",
         supports_skip_infer_and_single_package
     );
-    let cwd = fs_canonicalize(&repo_state.root)?;
+    let cwd = fs_canonicalize(&repo_state.root)
+        .map_err(|_| Error::RepoRootPath(repo_state.root.clone()))?;
+
     let mut raw_args: Vec<_> = if supports_skip_infer_and_single_package {
         vec!["--skip-infer".to_string()]
     } else {
@@ -553,9 +565,9 @@ fn spawn_local_turbo(
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
 
-    let child = spawn_child(command)?;
+    let child = spawn_child(command).map_err(Error::LocalTurboProcess)?;
 
-    let exit_status = child.wait()?;
+    let exit_status = child.wait().map_err(Error::LocalTurboProcess)?;
     let exit_code = exit_status.code().unwrap_or_else(|| {
         debug!("go-turbo failed to report exit code");
         #[cfg(unix)]

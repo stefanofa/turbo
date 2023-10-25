@@ -20,7 +20,7 @@ use thiserror::Error;
 use turborepo_api_client::Client;
 #[cfg(not(test))]
 use turborepo_ui::CYAN;
-use turborepo_ui::{color, BOLD, GREY, UNDERLINE};
+use turborepo_ui::{BOLD, GREY, UNDERLINE};
 use turborepo_vercel_api::{CachingStatus, Space, Team};
 
 use crate::{
@@ -32,6 +32,8 @@ use crate::{
 
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error(transparent)]
+    Config(#[from] config::Error),
     #[error("unable to find team {0}")]
     TeamNotFound(String),
     #[error("usage limit")]
@@ -45,13 +47,27 @@ pub enum Error {
     #[error("canceled")]
     UserCanceled,
     #[error("could not get user information {0}")]
-    UserNotFound(turborepo_api_client::Error),
-    #[error("could not get team information")]
-    TeamsNotFound(turborepo_api_client::Error),
+    UserNotFound(#[source] turborepo_api_client::Error),
+    #[error("could not get teams information")]
+    TeamsNotFound(#[source] turborepo_api_client::Error),
+    #[error("could not get spaces information")]
+    SpacesNotFound(#[source] turborepo_api_client::Error),
     #[error("could not get caching status")]
-    CachingStatusNotFound(turborepo_api_client::Error),
+    CachingStatusNotFound(#[source] turborepo_api_client::Error),
     #[error("Failed to open browser. Please visit {0} to enable Remote Caching")]
-    OpenBrowser(String, #[source] webbrowser::Error),
+    OpenBrowser(String, #[source] io::Error),
+    #[error("please re-run `link` after enabling caching")]
+    EnableCaching,
+    #[error(
+        "Could not persist selected space ({space_id}) to `experimentalSpaces.id` in turbo.json"
+    )]
+    WriteToTurboJson {
+        space_id: String,
+        #[source]
+        error: io::Error,
+    },
+    #[error(transparent)]
+    Rewrite(#[from] rewrite_json::RewriteError),
 }
 
 #[derive(Clone)]
@@ -119,7 +135,9 @@ pub(crate) async fn verify_caching_enabled<'a>(
                     None => {
                         let team = api_client
                             .get_team(token, team_id)
-                            .await?
+                            .await
+                            .ok()
+                            .flatten()
                             .ok_or_else(|| Error::TeamNotFound(team_id.to_string()))?;
                         let url =
                             format!("https://vercel.com/teams/{}/settings/billing", team.slug);
@@ -148,7 +166,7 @@ pub async fn link(
     let repo_root_with_tilde = base.repo_root.to_string().replacen(&*homedir, "~", 1);
     let api_client = base.api_client()?;
     let token = base.config()?.token().ok_or_else(|| Error::TokenNotFound {
-        command: color!(base.ui, BOLD, "`npx turbo login`"),
+        command: base.ui.apply(BOLD.apply_to("`npx turbo login`")),
     })?;
 
     match target {
@@ -210,8 +228,19 @@ pub async fn link(
                 &["teamId"],
                 &format!("\"{}\"", team_id),
             )?;
-            base.local_config_path().ensure_dir()?;
-            base.local_config_path().create_with_contents(after)?;
+            let local_config_path = base.local_config_path();
+            local_config_path
+                .ensure_dir()
+                .map_err(|error| config::Error::FailedToSetConfig {
+                    config_path: local_config_path.clone(),
+                    error,
+                })?;
+            local_config_path
+                .create_with_contents(after)
+                .map_err(|error| config::Error::FailedToSetConfig {
+                    config_path: local_config_path.clone(),
+                    error,
+                })?;
 
             let chosen_team_name = match selected_team {
                 SelectedTeam::User => user_display_name,
@@ -219,7 +248,10 @@ pub async fn link(
             };
 
             if modify_gitignore {
-                add_turbo_to_gitignore(base)?;
+                add_turbo_to_gitignore(base).map_err(|error| config::Error::FailedToSetConfig {
+                    config_path: base.repo_root.join_component(".gitignore"),
+                    error,
+                })?;
             }
 
             println!(
@@ -244,7 +276,7 @@ pub async fn link(
             );
 
             if !should_link_spaces(base, &repo_root_with_tilde)? {
-                return Err(anyhow!("canceled"));
+                return Err(Error::UserCanceled);
             }
 
             let user_response = api_client
@@ -261,7 +293,7 @@ pub async fn link(
             let teams_response = api_client
                 .get_teams(token)
                 .await
-                .context("could not get team information")?;
+                .map_err(Error::TeamsNotFound)?;
 
             let selected_team = select_team(base, &teams_response.teams, user_display_name)?;
 
@@ -273,31 +305,21 @@ pub async fn link(
             let spaces_response = api_client
                 .get_spaces(token, Some(team_id))
                 .await
-                .context("could not get spaces information")?;
+                .map_err(Error::SpacesNotFound)?;
 
             let selected_space = select_space(base, &spaces_response.spaces)?;
 
             // print result from selected_space
             let SelectedSpace::Space(space) = selected_space;
 
-            add_space_id_to_turbo_json(base, &space.id).map_err(|err| {
-                anyhow!(
-                    "Could not persist selected space ({}) to `experimentalSpaces.id` in \
-                     turbo.json {}",
-                    space.id,
-                    err
-                )
-            })?;
+            add_space_id_to_turbo_json(base, &space.id)?;
 
-            let before = base
-                .local_config_path()
+            let local_config_path = base.local_config_path();
+            let before = local_config_path
                 .read_existing_to_string_or(Ok("{}"))
-                .map_err(|e| {
-                    anyhow!(
-                        "Encountered an IO error while attempting to read {}: {}",
-                        base.local_config_path(),
-                        e
-                    )
+                .map_err(|error| config::Error::FailedToReadConfig {
+                    config_path: local_config_path.clone(),
+                    error,
                 })?;
 
             let no_preexisting_id = unset_path(&before, &["teamid"], false)?.unwrap_or(before);
@@ -309,8 +331,19 @@ pub async fn link(
                 &["teamId"],
                 &format!("\"{}\"", team_id),
             )?;
-            base.local_config_path().ensure_dir()?;
-            base.local_config_path().create_with_contents(after)?;
+            let local_config_path = base.local_config_path();
+            local_config_path
+                .ensure_dir()
+                .map_err(|error| config::Error::FailedToSetConfig {
+                    config_path: local_config_path.clone(),
+                    error,
+                })?;
+            local_config_path
+                .create_with_contents(after)
+                .map_err(|error| config::Error::FailedToSetConfig {
+                    config_path: local_config_path.clone(),
+                    error,
+                })?;
 
             println!(
                 "
@@ -333,13 +366,15 @@ pub async fn link(
 
 fn should_enable_caching() -> Result<bool, Error> {
     let theme = ColorfulTheme::default();
-    Ok(Confirm::with_theme(&theme)
+
+    Confirm::with_theme(&theme)
         .with_prompt(
             "Remote Caching was previously disabled for this team. Would you like to enable it \
              now?",
         )
         .default(true)
-        .interact()?)
+        .interact()
+        .map_err(|_| Error::UserCanceled)
 }
 
 #[cfg(test)]
@@ -387,7 +422,8 @@ fn select_team<'a>(
         .with_prompt(prompt)
         .items(&team_names)
         .default(0)
-        .interact()?;
+        .interact()
+        .map_err(|_| Error::UserCanceled)?;
 
     if selection == 0 {
         Ok(SelectedTeam::User)
@@ -431,7 +467,8 @@ fn select_space<'a>(base: &CommandBase, spaces: &'a [Space]) -> Result<SelectedS
         .with_prompt(prompt)
         .items(&space_names)
         .default(0)
-        .interact()?;
+        .interact()
+        .map_err(|_| Error::UserCanceled)?;
 
     Ok(SelectedSpace::Space(&spaces[selection]))
 }
@@ -451,7 +488,10 @@ fn should_link_remote_cache(base: &CommandBase, location: &str) -> Result<bool, 
         base.ui.apply(BOLD.apply_to(CYAN.apply_to(location)))
     );
 
-    Ok(Confirm::new().with_prompt(prompt).interact()?)
+    Confirm::new()
+        .with_prompt(prompt)
+        .interact()
+        .map_err(|_| Error::UserCanceled)
 }
 
 #[cfg(test)]
@@ -469,7 +509,10 @@ fn should_link_spaces(base: &CommandBase, location: &str) -> Result<bool, Error>
         base.ui.apply(BOLD.apply_to("to Vercel Spaces")),
     );
 
-    Ok(Confirm::new().with_prompt(prompt).interact()?)
+    Confirm::new()
+        .with_prompt(prompt)
+        .interact()
+        .map_err(|_| Error::UserCanceled)
 }
 
 fn enable_caching(url: &str) -> Result<(), Error> {
@@ -478,10 +521,10 @@ fn enable_caching(url: &str) -> Result<(), Error> {
     println!("Visit {} in your browser to enable Remote Caching", url);
 
     // We return an error no matter what
-    Err(anyhow!("link after enabling caching"))
+    Err(Error::EnableCaching)
 }
 
-fn add_turbo_to_gitignore(base: &CommandBase) -> Result<(), Error> {
+fn add_turbo_to_gitignore(base: &CommandBase) -> Result<(), io::Error> {
     let gitignore_path = base.repo_root.join_component(".gitignore");
 
     if !gitignore_path.exists() {
@@ -498,6 +541,7 @@ fn add_turbo_to_gitignore(base: &CommandBase) -> Result<(), Error> {
                 .read(true)
                 .append(true)
                 .open(&gitignore_path)?;
+
             writeln!(gitignore, ".turbo")?;
         }
     }
@@ -507,7 +551,13 @@ fn add_turbo_to_gitignore(base: &CommandBase) -> Result<(), Error> {
 
 fn add_space_id_to_turbo_json(base: &CommandBase, space_id: &str) -> Result<(), Error> {
     let turbo_json_path = base.repo_root.join_component("turbo.json");
-    let turbo_json = turbo_json_path.read_existing_to_string_or(Ok("{}"))?;
+    let turbo_json = turbo_json_path
+        .read_existing_to_string_or(Ok("{}"))
+        .map_err(|error| config::Error::FailedToReadConfig {
+            config_path: turbo_json_path.clone(),
+            error,
+        })?;
+
     let space_id_json_value = format!("\"{}\"", space_id);
 
     let output = rewrite_json::set_path(
@@ -516,7 +566,10 @@ fn add_space_id_to_turbo_json(base: &CommandBase, space_id: &str) -> Result<(), 
         &space_id_json_value,
     )?;
 
-    fs::write(turbo_json_path, output)?;
+    fs::write(turbo_json_path, output).map_err(|error| Error::WriteToTurboJson {
+        space_id: space_id.to_string(),
+        error,
+    })?;
 
     Ok(())
 }

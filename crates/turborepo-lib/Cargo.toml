@@ -18,6 +18,7 @@ go-daemon = []
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dev-dependencies]
+anyhow = { workspace = true, features = ["backtrace"] }
 assert_cmd = { workspace = true }
 async-stream = "0.3.4"
 itertools = { workspace = true }

@@ -1,7 +1,6 @@
-use std::{backtrace, io};
+use std::backtrace;
 
 use thiserror::Error;
-use turbopath::AbsoluteSystemPathBuf;
 
 use crate::{
     commands::{bin, generate, prune},

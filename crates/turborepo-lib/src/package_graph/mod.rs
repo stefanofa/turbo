@@ -665,7 +665,9 @@ mod test {
 
         assert_matches!(
             pkg_graph.validate(),
-            Err(builder::Error::Graph(graph::Error::CyclicDependencies(_)))
+            Err(builder::Error::InvalidPackageGraph(
+                graph::Error::CyclicDependencies(_)
+            ))
         );
     }
 
@@ -698,7 +700,9 @@ mod test {
 
         assert_matches!(
             pkg_graph.validate(),
-            Err(builder::Error::Graph(graph::Error::SelfDependency(_)))
+            Err(builder::Error::InvalidPackageGraph(
+                graph::Error::SelfDependency(_)
+            ))
         );
     }
 }
