@@ -8,6 +8,7 @@ use crate::{
     daemon::DaemonError,
     package_graph,
     rewrite_json::RewriteError,
+    run,
 };
 
 #[derive(Debug, Error)]
@@ -50,7 +51,6 @@ pub enum Error {
     PackageJson(#[from] turborepo_repository::package_json::Error),
     #[error(transparent)]
     PackageManager(#[from] turborepo_repository::package_manager::Error),
-    // Temporary to prevent having to move all of the errors from anyhow to thiserror at once.
     #[error(transparent)]
-    Run(anyhow::Error),
+    Run(run::Error),
 }

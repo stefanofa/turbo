@@ -117,7 +117,7 @@ impl PackageGraph {
 
     #[tracing::instrument(skip(self))]
     pub fn validate(&self) -> Result<(), Error> {
-        Ok(graph::validate_graph(&self.workspace_graph)?)
+        graph::validate_graph(&self.workspace_graph).map_err(Error::InvalidPackageGraph)
     }
 
     /// Returns the number of workspaces in the repo
