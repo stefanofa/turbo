@@ -3,7 +3,6 @@ use std::{
     fmt,
 };
 
-use anyhow::Result;
 use petgraph::visit::{depth_first_search, Reversed};
 use serde::Serialize;
 use turbopath::{AbsoluteSystemPath, AnchoredSystemPath, AnchoredSystemPathBuf};

@@ -1,4 +1,3 @@
-use anyhow::Result;
 use turborepo_repository::{package_json::PackageJson, package_manager::PackageManager};
 use turborepo_ui::GREY;
 

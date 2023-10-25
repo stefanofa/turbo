@@ -1,6 +1,5 @@
 use std::{collections::HashMap, ffi::OsString};
 
-use anyhow::anyhow;
 use dirs_next::config_dir;
 use serde::{Deserialize, Serialize};
 use turbopath::AbsoluteSystemPathBuf;

@@ -1,4 +1,5 @@
 use std::{
+    backtrace::Backtrace,
     env,
     fs::{self},
     path::PathBuf,
@@ -7,12 +8,12 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{anyhow, Result};
 use camino::Utf8PathBuf;
 use const_format::formatcp;
 use dunce::canonicalize as fs_canonicalize;
 use semver::Version;
 use serde::Deserialize;
+use thiserror::Error;
 use tiny_gradient::{GradientStr, RGB};
 use tracing::debug;
 use turbo_updater::check_for_updates;
@@ -24,6 +25,18 @@ use turborepo_repository::{
 use turborepo_ui::UI;
 
 use crate::{cli, get_version, spawn_child, tracing::TurboSubscriber, Payload};
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("cannot have multiple `--cwd` flags in command")]
+    MultipleCwd(#[backtrace] Backtrace),
+    #[error("No value assigned to `--cwd` argument")]
+    EmptyCwd(#[backtrace] Backtrace),
+    #[error(transparent)]
+    Cli(#[from] cli::Error),
+    #[error(transparent)]
+    Inference(#[from] turborepo_repository::inference::Error),
+}
 
 // all arguments that result in a stdout that much be directly parsable and
 // should not be paired with additional output (from the update notifier for
@@ -64,7 +77,7 @@ struct ShimArgs {
 }
 
 impl ShimArgs {
-    pub fn parse() -> Result<Self> {
+    pub fn parse() -> Result<Self, Error> {
         let mut found_cwd_flag = false;
         let mut cwd: Option<AbsoluteSystemPathBuf> = None;
         let mut skip_infer = false;
@@ -112,7 +125,7 @@ impl ShimArgs {
                 found_cwd_flag = false;
             } else if arg == "--cwd" {
                 if cwd.is_some() {
-                    return Err(anyhow!("cannot have multiple `--cwd` flags in command"));
+                    return Err(Error::MultipleCwd(Backtrace::capture()));
                 }
                 // If we see a `--cwd` we expect the next arg to be a path.
                 found_cwd_flag = true
@@ -120,7 +133,7 @@ impl ShimArgs {
                 // In the case where `--cwd` is passed as `--cwd=./path/to/foo`, that
                 // entire chunk is a single arg, so we need to split it up.
                 if cwd.is_some() {
-                    return Err(anyhow!("cannot have multiple `--cwd` flags in command"));
+                    return Err(Error::MultipleCwd(Backtrace::capture()));
                 }
                 cwd = Some(AbsoluteSystemPathBuf::from_cwd(cwd_arg)?);
             } else if arg == "--color" {
@@ -133,7 +146,7 @@ impl ShimArgs {
         }
 
         if found_cwd_flag {
-            Err(anyhow!("No value assigned to `--cwd` argument"))
+            Err(Error::EmptyCwd(Backtrace::capture()))
         } else {
             let invocation_dir = AbsoluteSystemPathBuf::cwd()?;
             let cwd = cwd.unwrap_or_else(|| invocation_dir.clone());
@@ -452,7 +465,7 @@ fn run_correct_turbo(
     shim_args: ShimArgs,
     subscriber: &TurboSubscriber,
     ui: UI,
-) -> Result<Payload> {
+) -> Result<Payload, Error> {
     if let Some(turbo_state) = LocalTurboState::infer(&repo_state.root) {
         try_check_for_updates(&shim_args, &turbo_state.version);
 
@@ -487,7 +500,7 @@ fn spawn_local_turbo(
     repo_state: &RepoState,
     local_turbo_state: LocalTurboState,
     mut shim_args: ShimArgs,
-) -> Result<i32> {
+) -> Result<i32, Error> {
     let local_turbo_path = fs_canonicalize(&local_turbo_state.bin_path)?;
     debug!(
         "Running local turbo binary in {}\n",
@@ -600,7 +613,7 @@ fn try_check_for_updates(args: &ShimArgs, current_version: &str) {
     }
 }
 
-pub fn run() -> Result<Payload> {
+pub fn run() -> Result<Payload, Error> {
     let args = ShimArgs::parse()?;
     let ui = args.ui();
     let subscriber = TurboSubscriber::new_with_verbosity(args.verbosity, &ui);

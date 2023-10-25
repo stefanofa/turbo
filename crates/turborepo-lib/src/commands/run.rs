@@ -1,4 +1,3 @@
-use anyhow::Result;
 use tracing::{debug, error};
 
 use crate::{commands::CommandBase, run, run::Run};

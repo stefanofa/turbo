@@ -14,7 +14,6 @@ use std::{
     time::SystemTime,
 };
 
-use anyhow::{anyhow, Context as ErrorContext};
 pub use cache::{RunCache, TaskCache};
 use chrono::Local;
 use itertools::Itertools;
@@ -236,13 +235,12 @@ impl<'a> Run<'a> {
         engine
             .validate(&pkg_dep_graph, opts.run_opts.concurrency)
             .map_err(|errors| {
-                anyhow!(
-                    "error preparing engine: Invalid persistent task configuration:\n{}",
+                Error::EngineValidation(
                     errors
                         .into_iter()
                         .map(|e| e.to_string())
                         .sorted()
-                        .join("\n")
+                        .join("\n"),
                 )
             })?;
 
@@ -407,8 +405,7 @@ impl<'a> Run<'a> {
         let env_at_execution_start = EnvironmentVariableMap::infer();
 
         let package_json_path = self.base.repo_root.join_component("package.json");
-        let root_package_json =
-            PackageJson::load(&package_json_path).context("failed to read package.json")?;
+        let root_package_json = PackageJson::load(&package_json_path)?;
 
         let opts = self.opts()?;
 

@@ -1,6 +1,5 @@
 use std::cell::OnceCell;
 
-use anyhow::anyhow;
 use dirs_next::config_dir;
 use sha2::{Digest, Sha256};
 use turbopath::{AbsoluteSystemPath, AbsoluteSystemPathBuf};
