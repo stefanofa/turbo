@@ -56,7 +56,7 @@ pub enum Error {
     #[error("failed to contact spaces client")]
     SpacesClientSend(#[from] tokio::sync::mpsc::error::SendError<SpaceRequest>),
     #[error("failed to parse environment variables")]
-    EnvironmentVars(turborepo_env::Error),
+    Env(#[source] turborepo_env::Error),
 }
 
 // NOTE: When changing this, please ensure that the server side is updated to
