@@ -7,7 +7,7 @@ use lightningcss::{
     visit_types,
     visitor::{Visit, Visitor},
 };
-use turbo_tasks::{Value, ValueToString, Vc};
+use turbo_tasks::{vdbg, Value, ValueToString, Vc};
 use turbopack_core::{
     chunk::ChunkingContext,
     ident::AssetIdent,
