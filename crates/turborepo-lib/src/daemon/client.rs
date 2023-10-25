@@ -45,35 +45,6 @@ impl<T: Clone> DaemonClient<T> {
         self.client.shutdown(proto::ShutdownRequest {}).await?;
         Ok(self.connect_settings)
     }
-}
-
-impl DaemonClient<()> {
-    pub fn new(client: TurbodClient<tonic::transport::Channel>) -> Self {
-        Self {
-            client,
-            connect_settings: (),
-        }
-    }
-
-    /// Augment the client with the connect settings, allowing it to be
-    /// restarted.
-    pub fn with_connect_settings(
-        self,
-        connect_settings: DaemonConnector,
-    ) -> DaemonClient<DaemonConnector> {
-        DaemonClient {
-            client: self.client,
-            connect_settings,
-        }
-    }
-}
-
-impl DaemonClient<DaemonConnector> {
-    /// Stops the daemon, closes the connection, and opens a new connection.
-    pub async fn restart(self) -> Result<DaemonClient<DaemonConnector>, DaemonError> {
-        self.stop().await?.connect().await.map_err(Into::into)
-    }
-
     pub async fn get_changed_outputs(
         &mut self,
         hash: String,
@@ -126,6 +97,48 @@ impl DaemonClient<DaemonConnector> {
             .into_inner()
             .daemon_status
             .ok_or(DaemonError::MalformedResponse)
+    }
+
+    pub async fn discover_packages(
+        &mut self,
+    ) -> Result<Vec<crate::daemon::proto::PackageFiles>, DaemonError> {
+        let response = self
+            .client
+            .discover_packages(proto::DiscoverPackagesRequest {})
+            .await?
+            .into_inner();
+
+        tracing::info!("{:?}", response);
+
+        Ok(response.package_files)
+    }
+}
+
+impl DaemonClient<()> {
+    pub fn new(client: TurbodClient<tonic::transport::Channel>) -> Self {
+        Self {
+            client,
+            connect_settings: (),
+        }
+    }
+
+    /// Augment the client with the connect settings, allowing it to be
+    /// restarted.
+    pub fn with_connect_settings(
+        self,
+        connect_settings: DaemonConnector,
+    ) -> DaemonClient<DaemonConnector> {
+        DaemonClient {
+            client: self.client,
+            connect_settings,
+        }
+    }
+}
+
+impl DaemonClient<DaemonConnector> {
+    /// Stops the daemon, closes the connection, and opens a new connection.
+    pub async fn restart(self) -> Result<DaemonClient<DaemonConnector>, DaemonError> {
+        self.stop().await?.connect().await.map_err(Into::into)
     }
 
     pub fn pid_file(&self) -> &turbopath::AbsoluteSystemPathBuf {
