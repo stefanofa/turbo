@@ -5,16 +5,15 @@ use tonic::{Code, Status};
 use tracing::info;
 use turbopath::AbsoluteSystemPathBuf;
 
-use self::proto::turbod_client::TurbodClient;
 use super::{
     connector::{DaemonConnector, DaemonConnectorError},
     endpoint::SocketOpenError,
 };
-use crate::{get_version, globwatcher::HashGlobSetupError};
-
-pub mod proto {
-    tonic::include_proto!("turbodprotocol");
-}
+use crate::{
+    daemon::proto::{self, turbod_client::TurbodClient},
+    get_version,
+    globwatcher::HashGlobSetupError,
+};
 
 #[derive(Debug, Clone)]
 pub struct DaemonClient<T: Clone> {

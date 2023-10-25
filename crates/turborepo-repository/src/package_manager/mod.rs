@@ -88,7 +88,7 @@ impl Display for PackageManager {
 }
 
 // WorkspaceGlobs is suitable for finding package.json files via globwalk
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WorkspaceGlobs {
     directory_inclusions: Any<'static>,
     directory_exclusions: Any<'static>,
@@ -313,9 +313,9 @@ impl PackageManager {
             PackageManager::Pnpm | PackageManager::Pnpm6 => {
                 // Make sure to convert this to a missing workspace error
                 // so we can catch it in the case of single package mode.
-                let workspace_yaml =
-                    fs::read_to_string(root_path.join_component("pnpm-workspace.yaml"))
-                        .map_err(|_| Error::Workspace(MissingWorkspaceError::from(self)))?;
+                let source = self.workspace_glob_source(root_path);
+                let workspace_yaml = fs::read_to_string(source)
+                    .map_err(|_| Error::Workspace(MissingWorkspaceError::from(self)))?;
                 let pnpm_workspace: PnpmWorkspace = serde_yaml::from_str(&workspace_yaml)?;
                 if pnpm_workspace.packages.is_empty() {
                     return Err(MissingWorkspaceError::from(self).into());
@@ -327,8 +327,7 @@ impl PackageManager {
             | PackageManager::Npm
             | PackageManager::Yarn
             | PackageManager::Bun => {
-                let package_json_text =
-                    fs::read_to_string(root_path.join_component("package.json"))?;
+                let package_json_text = fs::read_to_string(self.workspace_glob_source(root_path))?;
                 let package_json: PackageJsonWorkspaces = serde_json::from_str(&package_json_text)
                     .map_err(|_| Error::Workspace(MissingWorkspaceError::from(self)))?; // Make sure to convert this to a missing workspace error
 
@@ -349,6 +348,18 @@ impl PackageManager {
         });
 
         Ok((inclusions, exclusions))
+    }
+
+    pub fn workspace_glob_source(&self, root_path: &AbsoluteSystemPath) -> AbsoluteSystemPathBuf {
+        match self {
+            PackageManager::Pnpm | PackageManager::Pnpm6 => {
+                root_path.join_component("pnpm-workspace.yaml")
+            }
+            PackageManager::Berry
+            | PackageManager::Yarn
+            | PackageManager::Npm
+            | PackageManager::Bun => root_path.join_component("package.json"),
+        }
     }
 
     // TODO: consider if this method should not need an Option, and possibly be a

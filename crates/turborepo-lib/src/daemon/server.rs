@@ -25,15 +25,17 @@ use futures::Future;
 use thiserror::Error;
 use tokio::{
     select,
-    sync::{mpsc, oneshot, watch},
+    sync::{mpsc, oneshot, watch, Mutex as AsyncMutex},
 };
 use tonic::transport::{NamedService, Server};
 use tower::ServiceBuilder;
 use tracing::{error, info, trace, warn};
 use turbopath::{AbsoluteSystemPath, AbsoluteSystemPathBuf};
+use turborepo_discovery::{LocalPackageDiscovery, PackageDiscovery};
 use turborepo_filewatch::{
     cookie_jar::CookieJar,
     globwatcher::{Error as GlobWatcherError, GlobError, GlobSet, GlobWatcher},
+    package_watcher::PackageWatcher,
     FileSystemWatcher, WatchError,
 };
 
@@ -45,6 +47,7 @@ use super::{
 use crate::{
     daemon::{bump_timeout_layer::BumpTimeoutLayer, endpoint::listen_socket},
     get_version,
+    run::package_discovery::WatchingPackageDiscovery,
 };
 
 #[derive(Debug)]
@@ -58,9 +61,10 @@ pub enum CloseReason {
     SocketOpenError(SocketOpenError),
 }
 
-struct FileWatching {
+pub struct FileWatching {
     _watcher: FileSystemWatcher,
-    glob_watcher: GlobWatcher,
+    pub glob_watcher: GlobWatcher,
+    pub package_watcher: PackageWatcher,
 }
 
 #[derive(Debug, Error)]
@@ -99,11 +103,17 @@ async fn start_filewatching(
         watcher.subscribe(),
     );
     let glob_watcher = GlobWatcher::new(&repo_root, cookie_jar, watcher.subscribe());
+    let package_watcher = PackageWatcher::new(
+        repo_root.clone(),
+        watcher.subscribe(),
+        LocalPackageDiscovery::new(repo_root),
+    );
     // We can ignore failures here, it means the server is shutting down and
     // receivers have gone out of scope.
     let _ = watcher_tx.send(Some(Arc::new(FileWatching {
         _watcher: watcher,
         glob_watcher,
+        package_watcher,
     })));
     Ok(())
 }
@@ -180,6 +190,7 @@ where
     // RPCs.
     let service = TurboGrpcService {
         shutdown: trigger_shutdown,
+        package_discovery: AsyncMutex::new(WatchingPackageDiscovery::new(watcher_rx.clone())),
         watcher_rx,
         times_saved: Arc::new(Mutex::new(HashMap::new())),
         start_time: Instant::now(),
@@ -227,6 +238,7 @@ struct TurboGrpcService {
     times_saved: Arc<Mutex<HashMap<String, u64>>>,
     start_time: Instant,
     log_file: AbsoluteSystemPathBuf,
+    package_discovery: AsyncMutex<WatchingPackageDiscovery>,
 }
 
 impl TurboGrpcService {
@@ -276,21 +288,12 @@ async fn wait_for_filewatching(
     mut rx: watch::Receiver<Option<Arc<FileWatching>>>,
     timeout: Duration,
 ) -> Result<Arc<FileWatching>, RpcError> {
-    if let Some(fw) = rx.borrow().as_ref().cloned() {
-        return Ok(fw);
-    }
-    tokio::time::timeout(timeout, rx.changed())
+    let fw = tokio::time::timeout(timeout, rx.wait_for(|opt| opt.is_some()))
         .await
         .map_err(|_| RpcError::DeadlineExceeded)? // timeout case
-        .map_err(|_| RpcError::NoFileWatching)?; // sender dropped with no receivers
-    let result = rx
-        .borrow()
-        .as_ref()
-        .cloned()
-        // This error should never happen, we got the change notification
-        // above, and we only ever go from None to Some filewatcher
-        .ok_or_else(|| RpcError::NoFileWatching)?;
-    Ok(result)
+        .map_err(|_| RpcError::NoFileWatching)?; // sender dropped
+
+    return Ok(fw.as_ref().unwrap().clone());
 }
 
 async fn watch_root(
@@ -406,6 +409,29 @@ impl proto::turbod_server::Turbod for TurboGrpcService {
             changed_output_globs: changed.into_iter().collect(),
             time_saved,
         }))
+    }
+
+    async fn discover_packages(
+        &self,
+        _request: tonic::Request<proto::DiscoverPackagesRequest>,
+    ) -> Result<tonic::Response<proto::DiscoverPackagesResponse>, tonic::Status> {
+        self.package_discovery
+            .lock()
+            .await
+            .discover_packages()
+            .await
+            .map(|packages| {
+                tonic::Response::new(proto::DiscoverPackagesResponse {
+                    package_files: packages
+                        .into_iter()
+                        .map(|d| proto::PackageFiles {
+                            package_json: d.package_json.to_string(),
+                            turbo_json: d.turbo_json.map(|t| t.to_string()),
+                        })
+                        .collect(),
+                })
+            })
+            .map_err(|e| tonic::Status::internal(format!("{}", e)))
     }
 }
 

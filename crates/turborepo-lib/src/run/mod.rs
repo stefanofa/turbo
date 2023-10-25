@@ -2,6 +2,7 @@
 
 mod cache;
 pub(crate) mod global_hash;
+pub(crate) mod package_discovery;
 mod scope;
 pub(crate) mod summary;
 pub mod task_id;

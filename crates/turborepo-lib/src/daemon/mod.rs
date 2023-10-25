@@ -7,7 +7,7 @@ mod server;
 
 pub use client::{DaemonClient, DaemonError};
 pub use connector::DaemonConnector;
-pub use server::{serve, CloseReason};
+pub use server::{serve, CloseReason, FileWatching};
 
 pub(crate) mod proto {
     tonic::include_proto!("turbodprotocol");
