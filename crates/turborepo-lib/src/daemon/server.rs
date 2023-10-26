@@ -106,7 +106,7 @@ async fn start_filewatching(
     let package_watcher = PackageWatcher::new(
         repo_root.clone(),
         watcher.subscribe(),
-        LocalPackageDiscovery::new(repo_root),
+        LocalPackageDiscovery::new(repo_root).map_err(|e| WatchError::Setup(format!("{}", e)))?,
     )
     .map_err(|e| WatchError::Setup(format!("{:?}", e)))?;
     // We can ignore failures here, it means the server is shutting down and

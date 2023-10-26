@@ -64,7 +64,7 @@ impl PackageDiscovery for LocalPackageDiscovery {
         iter(
             self.manager
                 .get_package_jsons(&self.repo_root)
-                .map_err(|e| Error::Failed)?,
+                .map_err(|_e| Error::Failed)?,
         )
         .then(move |a| async {
             let potential_turbo = a.parent().expect("non-root").join_component("turbo.json");

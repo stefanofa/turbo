@@ -7,7 +7,6 @@ use anyhow::Result;
 use petgraph::visit::{depth_first_search, Reversed};
 use serde::Serialize;
 use turbopath::{AbsoluteSystemPath, AnchoredSystemPath, AnchoredSystemPathBuf};
-use turborepo_discovery::LocalPackageDiscovery;
 use turborepo_lockfiles::Lockfile;
 use turborepo_repository::{package_json::PackageJson, package_manager::PackageManager};
 
@@ -112,7 +111,7 @@ impl PackageGraph {
     pub fn builder(
         repo_root: &AbsoluteSystemPath,
         root_package_json: PackageJson,
-    ) -> PackageGraphBuilder<LocalPackageDiscovery> {
+    ) -> PackageGraphBuilder<()> {
         PackageGraphBuilder::new(repo_root, root_package_json)
     }
 
