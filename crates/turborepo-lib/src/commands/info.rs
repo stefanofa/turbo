@@ -7,7 +7,7 @@ use crate::{
     package_graph::{PackageGraph, WorkspaceName, WorkspaceNode},
 };
 
-pub fn run(base: &mut CommandBase, workspace: Option<&str>) -> Result<()> {
+pub async fn run(base: &mut CommandBase, workspace: Option<&str>) -> Result<()> {
     let root_package_json = PackageJson::load(&base.repo_root.join_component("package.json"))?;
 
     let package_manager =
@@ -15,7 +15,8 @@ pub fn run(base: &mut CommandBase, workspace: Option<&str>) -> Result<()> {
 
     let package_graph = PackageGraph::builder(&base.repo_root, root_package_json)
         .with_package_manger(Some(package_manager))
-        .build()?;
+        .build()
+        .await?;
 
     if let Some(workspace) = workspace {
         print_workspace_details(&package_graph, workspace)

@@ -6,7 +6,7 @@ use turborepo_discovery::{Error, PackageData, PackageDiscovery};
 
 use crate::daemon::{DaemonClient, FileWatching};
 
-struct DaemonPackageDiscovery<'a, C: Clone> {
+pub struct DaemonPackageDiscovery<'a, C: Clone> {
     daemon: &'a mut DaemonClient<C>,
 }
 
@@ -60,7 +60,6 @@ impl PackageDiscovery for WatchingPackageDiscovery {
 mod test {
     use turbopath::AbsoluteSystemPathBuf;
 
-    use super::*;
     use crate::daemon::DaemonConnector;
 
     #[tokio::test]

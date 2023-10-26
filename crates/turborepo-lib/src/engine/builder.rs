@@ -477,7 +477,7 @@ mod test {
         };
     }
 
-    fn mock_package_graph(
+    async fn mock_package_graph(
         repo_root: &AbsoluteSystemPath,
         jsons: HashMap<AbsoluteSystemPathBuf, PackageJson>,
     ) -> PackageGraph {
@@ -486,11 +486,12 @@ mod test {
             .with_lockfile(Some(Box::new(MockLockfile)))
             .with_package_jsons(Some(jsons))
             .build()
+            .await
             .unwrap()
     }
 
-    #[test]
-    fn test_turbo_json_loading() {
+    #[tokio::test]
+    async fn test_turbo_json_loading() {
         let repo_root_dir = TempDir::new("repo").unwrap();
         let repo_root = AbsoluteSystemPathBuf::new(repo_root_dir.path().to_str().unwrap()).unwrap();
         let package_graph = mock_package_graph(
@@ -501,7 +502,8 @@ mod test {
                 "b" => [],
                 "c" => ["a", "b"]
             },
-        );
+        )
+        .await;
         let engine_builder = EngineBuilder::new(&repo_root, &package_graph, false)
             .with_turbo_jsons(Some(vec![].into_iter().collect()));
 
@@ -534,7 +536,8 @@ mod test {
     #[test_case(WorkspaceName::from("b"), "build", "b#build", true ; "workspace task in workspace")]
     #[test_case(WorkspaceName::from("b"), "test", "b#test", true ; "task missing from workspace")]
     #[test_case(WorkspaceName::from("c"), "missing", "c#missing", false ; "task missing")]
-    fn test_task_definition(
+    #[tokio::test]
+    async fn test_task_definition(
         workspace: WorkspaceName,
         task_name: &'static str,
         task_id: &'static str,
@@ -550,7 +553,8 @@ mod test {
                 "b" => [],
                 "c" => ["a", "b"]
             },
-        );
+        )
+        .await;
         let mut turbo_jsons = vec![
             (
                 WorkspaceName::Root,
@@ -617,8 +621,8 @@ mod test {
             .collect()
     }
 
-    #[test]
-    fn test_default_engine() {
+    #[tokio::test]
+    async fn test_default_engine() {
         let repo_root_dir = TempDir::new("repo").unwrap();
         let repo_root = AbsoluteSystemPathBuf::new(repo_root_dir.path().to_str().unwrap()).unwrap();
         let package_graph = mock_package_graph(
@@ -629,7 +633,8 @@ mod test {
                 "b" => [],
                 "c" => ["a", "b"]
             },
-        );
+        )
+        .await;
         let turbo_jsons = vec![(
             WorkspaceName::Root,
             turbo_json(json!({
@@ -667,8 +672,8 @@ mod test {
         assert_eq!(all_dependencies(&engine), expected);
     }
 
-    #[test]
-    fn test_dependencies_on_unspecified_packages() {
+    #[tokio::test]
+    async fn test_dependencies_on_unspecified_packages() {
         let repo_root_dir = TempDir::new("repo").unwrap();
         let repo_root = AbsoluteSystemPathBuf::new(repo_root_dir.path().to_str().unwrap()).unwrap();
         // app1 -> libA
@@ -688,7 +693,8 @@ mod test {
                 "libC" => [],
                 "libD" => []
             },
-        );
+        )
+        .await;
         let turbo_jsons = vec![(
             WorkspaceName::Root,
             turbo_json(json!({
@@ -716,8 +722,8 @@ mod test {
         assert_eq!(all_dependencies(&engine), expected);
     }
 
-    #[test]
-    fn test_run_package_task() {
+    #[tokio::test]
+    async fn test_run_package_task() {
         let repo_root_dir = TempDir::new("repo").unwrap();
         let repo_root = AbsoluteSystemPathBuf::new(repo_root_dir.path().to_str().unwrap()).unwrap();
         let package_graph = mock_package_graph(
@@ -727,7 +733,8 @@ mod test {
                 "app1" => ["libA"],
                 "libA" => []
             },
-        );
+        )
+        .await;
         let turbo_jsons = vec![(
             WorkspaceName::Root,
             turbo_json(json!({
@@ -756,8 +763,8 @@ mod test {
         assert_eq!(all_dependencies(&engine), expected);
     }
 
-    #[test]
-    fn test_include_root_tasks() {
+    #[tokio::test]
+    async fn test_include_root_tasks() {
         let repo_root_dir = TempDir::new("repo").unwrap();
         let repo_root = AbsoluteSystemPathBuf::new(repo_root_dir.path().to_str().unwrap()).unwrap();
         let package_graph = mock_package_graph(
@@ -767,7 +774,8 @@ mod test {
                 "app1" => ["libA"],
                 "libA" => []
             },
-        );
+        )
+        .await;
         let turbo_jsons = vec![(
             WorkspaceName::Root,
             turbo_json(json!({
@@ -806,8 +814,8 @@ mod test {
         assert_eq!(all_dependencies(&engine), expected);
     }
 
-    #[test]
-    fn test_depend_on_root_task() {
+    #[tokio::test]
+    async fn test_depend_on_root_task() {
         let repo_root_dir = TempDir::new("repo").unwrap();
         let repo_root = AbsoluteSystemPathBuf::new(repo_root_dir.path().to_str().unwrap()).unwrap();
         let package_graph = mock_package_graph(
@@ -817,7 +825,8 @@ mod test {
                 "app1" => ["libA"],
                 "libA" => []
             },
-        );
+        )
+        .await;
         let turbo_jsons = vec![(
             WorkspaceName::Root,
             turbo_json(json!({
@@ -850,8 +859,8 @@ mod test {
         assert_eq!(all_dependencies(&engine), expected);
     }
 
-    #[test]
-    fn test_depend_on_missing_task() {
+    #[tokio::test]
+    async fn test_depend_on_missing_task() {
         let repo_root_dir = TempDir::new("repo").unwrap();
         let repo_root = AbsoluteSystemPathBuf::new(repo_root_dir.path().to_str().unwrap()).unwrap();
         let package_graph = mock_package_graph(
@@ -861,7 +870,8 @@ mod test {
                 "app1" => ["libA"],
                 "libA" => []
             },
-        );
+        )
+        .await;
         let turbo_jsons = vec![(
             WorkspaceName::Root,
             turbo_json(json!({
@@ -883,8 +893,8 @@ mod test {
         assert_matches!(engine, Err(Error::MissingTaskForRoot { .. }));
     }
 
-    #[test]
-    fn test_depend_on_multiple_package_tasks() {
+    #[tokio::test]
+    async fn test_depend_on_multiple_package_tasks() {
         let repo_root_dir = TempDir::new("repo").unwrap();
         let repo_root = AbsoluteSystemPathBuf::new(repo_root_dir.path().to_str().unwrap()).unwrap();
         let package_graph = mock_package_graph(
@@ -894,7 +904,8 @@ mod test {
                 "app1" => ["libA"],
                 "libA" => []
             },
-        );
+        )
+        .await;
         let turbo_jsons = vec![(
             WorkspaceName::Root,
             turbo_json(json!({
@@ -929,8 +940,8 @@ mod test {
         assert_eq!(all_dependencies(&engine), expected);
     }
 
-    #[test]
-    fn test_depends_on_disabled_root_task() {
+    #[tokio::test]
+    async fn test_depends_on_disabled_root_task() {
         let repo_root_dir = TempDir::new("repo").unwrap();
         let repo_root = AbsoluteSystemPathBuf::new(repo_root_dir.path().to_str().unwrap()).unwrap();
         let package_graph = mock_package_graph(
@@ -940,7 +951,8 @@ mod test {
                 "app1" => ["libA"],
                 "libA" => []
             },
-        );
+        )
+        .await;
         let turbo_jsons = vec![(
             WorkspaceName::Root,
             turbo_json(json!({
@@ -967,8 +979,8 @@ mod test {
         assert_matches!(engine, Err(Error::MissingTaskForRoot { .. }));
     }
 
-    #[test]
-    fn test_engine_tasks_only() {
+    #[tokio::test]
+    async fn test_engine_tasks_only() {
         let repo_root_dir = TempDir::new("repo").unwrap();
         let repo_root = AbsoluteSystemPathBuf::new(repo_root_dir.path().to_str().unwrap()).unwrap();
         let package_graph = mock_package_graph(
@@ -979,7 +991,8 @@ mod test {
                 "b" => [],
                 "c" => ["a", "b"]
             },
-        );
+        )
+        .await;
         let turbo_jsons = vec![(
             WorkspaceName::Root,
             turbo_json(json!({

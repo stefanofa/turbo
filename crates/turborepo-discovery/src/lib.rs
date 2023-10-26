@@ -76,10 +76,16 @@ impl PackageDiscovery for LocalPackageDiscovery {
     }
 }
 
-pub struct FallbackPackageDiscovery<A: PackageDiscovery, B: PackageDiscovery> {
+pub struct FallbackPackageDiscovery<A, B> {
     a: A,
     b: B,
     timeout: std::time::Duration,
+}
+
+impl<A, B> FallbackPackageDiscovery<A, B> {
+    pub fn new(a: A, b: B, timeout: std::time::Duration) -> Self {
+        Self { a, b, timeout }
+    }
 }
 
 impl<A: PackageDiscovery + Send, B: PackageDiscovery + Send> PackageDiscovery
