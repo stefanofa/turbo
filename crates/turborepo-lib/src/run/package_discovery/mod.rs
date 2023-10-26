@@ -10,6 +10,12 @@ pub struct DaemonPackageDiscovery<'a, C: Clone> {
     daemon: &'a mut DaemonClient<C>,
 }
 
+impl<'a, C: Clone> DaemonPackageDiscovery<'a, C> {
+    pub fn new(daemon: &'a mut DaemonClient<C>) -> Self {
+        Self { daemon }
+    }
+}
+
 impl<'a, C: Clone + Send> PackageDiscovery for DaemonPackageDiscovery<'a, C> {
     async fn discover_packages(&mut self) -> Result<Vec<PackageData>, Error> {
         Ok(self

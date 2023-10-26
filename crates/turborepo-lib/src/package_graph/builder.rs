@@ -72,7 +72,9 @@ impl<'a> PackageGraphBuilder<'a, LocalPackageDiscovery> {
             package_discovery: LocalPackageDiscovery::new(repo_root.to_owned()),
         }
     }
+}
 
+impl<'a, P: PackageDiscovery> PackageGraphBuilder<'a, P> {
     pub fn with_single_package_mode(mut self, is_single: bool) -> Self {
         self.is_single_package = is_single;
         self
@@ -97,6 +99,25 @@ impl<'a> PackageGraphBuilder<'a, LocalPackageDiscovery> {
     pub fn with_lockfile(mut self, lockfile: Option<Box<dyn Lockfile>>) -> Self {
         self.lockfile = lockfile;
         self
+    }
+
+    #[allow(dead_code)]
+    pub fn with_package_discovery<P2: PackageDiscovery>(
+        self,
+        discovery: P2,
+    ) -> PackageGraphBuilder<'a, P2>
+    where
+        P: PackageDiscovery,
+    {
+        PackageGraphBuilder {
+            repo_root: self.repo_root,
+            root_package_json: self.root_package_json,
+            is_single_package: self.is_single_package,
+            package_manager: self.package_manager,
+            package_jsons: self.package_jsons,
+            lockfile: self.lockfile,
+            package_discovery: discovery,
+        }
     }
 
     #[tracing::instrument(skip(self))]

@@ -10,7 +10,7 @@ use std::{
     collections::HashSet,
     io::{BufWriter, IsTerminal, Write},
     sync::Arc,
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
 
 use anyhow::{anyhow, Context as ErrorContext, Result};
@@ -22,6 +22,7 @@ use tracing::{debug, info};
 use turbopath::AbsoluteSystemPathBuf;
 use turborepo_cache::{AsyncCache, RemoteCacheOpts};
 use turborepo_ci::Vendor;
+use turborepo_discovery::{FallbackPackageDiscovery, LocalPackageDiscovery};
 use turborepo_env::EnvironmentVariableMap;
 use turborepo_repository::package_json::PackageJson;
 use turborepo_scm::SCM;
@@ -37,7 +38,10 @@ use crate::{
     opts::{GraphOpts, Opts},
     package_graph::{PackageGraph, WorkspaceName},
     process::ProcessManager,
-    run::{global_hash::get_global_hash_inputs, summary::RunTracker},
+    run::{
+        global_hash::get_global_hash_inputs, package_discovery::DaemonPackageDiscovery,
+        summary::RunTracker,
+    },
     shim::TurboState,
     task_graph::Visitor,
     task_hash::{PackageInputsHashes, TaskHashTrackerState},
@@ -126,8 +130,32 @@ impl<'a> Run<'a> {
 
         let is_single_package = opts.run_opts.single_package;
 
+        // There's some warning handling code in Go that I'm ignoring
+        let is_ci_or_not_tty = turborepo_ci::is_ci() || !std::io::stdout().is_terminal();
+
+        let mut daemon = None;
+        if is_ci_or_not_tty && !opts.run_opts.no_daemon {
+            info!("skipping turbod since we appear to be in a non-interactive context");
+        } else if !opts.run_opts.no_daemon {
+            let connector = DaemonConnector {
+                can_start_server: true,
+                can_kill_server: true,
+                pid_file: self.base.daemon_file_root().join_component("turbod.pid"),
+                sock_file: self.base.daemon_file_root().join_component("turbod.sock"),
+            };
+
+            let client = connector.connect().await?;
+            debug!("running in daemon mode");
+            daemon = Some(client);
+        }
+
         let pkg_dep_graph = PackageGraph::builder(&self.base.repo_root, root_package_json.clone())
             .with_single_package_mode(opts.run_opts.single_package)
+            .with_package_discovery(FallbackPackageDiscovery::new(
+                daemon.as_mut().map(DaemonPackageDiscovery::new),
+                LocalPackageDiscovery::new(self.base.repo_root.clone()),
+                Duration::from_millis(10),
+            ))
             .build()
             .await?;
 
@@ -150,25 +178,6 @@ impl<'a> Run<'a> {
 
         if opts.run_opts.experimental_space_id.is_none() {
             opts.run_opts.experimental_space_id = root_turbo_json.space_id.clone();
-        }
-
-        // There's some warning handling code in Go that I'm ignoring
-        let is_ci_or_not_tty = turborepo_ci::is_ci() || !std::io::stdout().is_terminal();
-
-        let mut daemon = None;
-        if is_ci_or_not_tty && !opts.run_opts.no_daemon {
-            info!("skipping turbod since we appear to be in a non-interactive context");
-        } else if !opts.run_opts.no_daemon {
-            let connector = DaemonConnector {
-                can_start_server: true,
-                can_kill_server: true,
-                pid_file: self.base.daemon_file_root().join_component("turbod.pid"),
-                sock_file: self.base.daemon_file_root().join_component("turbod.sock"),
-            };
-
-            let client = connector.connect().await?;
-            debug!("running in daemon mode");
-            daemon = Some(client);
         }
 
         pkg_dep_graph
