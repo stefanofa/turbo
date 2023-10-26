@@ -14,7 +14,7 @@
 
 use tokio_stream::{iter, StreamExt};
 use turbopath::AbsoluteSystemPathBuf;
-use turborepo_repository::package_manager::PackageManager;
+use turborepo_repository::package_manager::{self, PackageManager};
 
 #[derive(Clone)]
 pub struct PackageData {
@@ -26,6 +26,8 @@ pub struct PackageData {
 pub enum Error {
     #[error("discovery unavailable")]
     Unavailable,
+    #[error("discovery failed")]
+    Failed,
 }
 
 /// Defines a strategy for discovering packages on the filesystem.
@@ -51,28 +53,32 @@ pub struct LocalPackageDiscovery {
 }
 
 impl LocalPackageDiscovery {
-    pub fn new(repo_root: AbsoluteSystemPathBuf) -> Self {
-        let manager = PackageManager::get_package_manager(&repo_root, None).unwrap();
-        Self { repo_root, manager }
+    pub fn new(repo_root: AbsoluteSystemPathBuf) -> Result<Self, package_manager::Error> {
+        let manager = PackageManager::get_package_manager(&repo_root, None)?;
+        Ok(Self { repo_root, manager })
     }
 }
 
 impl PackageDiscovery for LocalPackageDiscovery {
     async fn discover_packages(&mut self) -> Result<Vec<PackageData>, Error> {
-        iter(self.manager.get_package_jsons(&self.repo_root).unwrap())
-            .then(move |a| async {
-                let potential_turbo = a.parent().expect("non-root").join_component("turbo.json");
-                let potential_turbo_exists = tokio::fs::try_exists(potential_turbo.as_path()).await;
+        iter(
+            self.manager
+                .get_package_jsons(&self.repo_root)
+                .map_err(|e| Error::Failed)?,
+        )
+        .then(move |a| async {
+            let potential_turbo = a.parent().expect("non-root").join_component("turbo.json");
+            let potential_turbo_exists = tokio::fs::try_exists(potential_turbo.as_path()).await;
 
-                Ok(PackageData {
-                    package_json: a,
-                    turbo_json: potential_turbo_exists
-                        .ok()
-                        .and_then(|pe| pe.then_some(potential_turbo)),
-                })
+            Ok(PackageData {
+                package_json: a,
+                turbo_json: potential_turbo_exists
+                    .ok()
+                    .and_then(|pe| pe.then_some(potential_turbo)),
             })
-            .collect()
-            .await
+        })
+        .collect()
+        .await
     }
 }
 
@@ -98,6 +104,7 @@ impl<A: PackageDiscovery + Send, B: PackageDiscovery + Send> PackageDiscovery
                 Ok(packages) => Ok(packages),
                 // if the backup is unavailable, return the original error
                 Err(Error::Unavailable) => Err(err1),
+                Err(err2) => Err(err2),
             },
             Err(_) => self.b.discover_packages().await,
         }

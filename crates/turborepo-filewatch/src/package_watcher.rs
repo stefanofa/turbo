@@ -4,13 +4,16 @@
 use std::{collections::HashMap, future::IntoFuture, sync::Arc};
 
 use notify::Event;
-use tokio::sync::{
-    broadcast::{self, error::RecvError},
-    oneshot, Mutex,
+use tokio::{
+    join,
+    sync::{
+        broadcast::{self, error::RecvError},
+        oneshot, Mutex,
+    },
 };
 use turbopath::AbsoluteSystemPathBuf;
 use turborepo_discovery::{PackageData, PackageDiscovery};
-use turborepo_repository::package_manager::{PackageManager, WorkspaceGlobs};
+use turborepo_repository::package_manager::{self, Error, PackageManager, WorkspaceGlobs};
 
 use crate::NotifyError;
 
@@ -30,16 +33,16 @@ impl PackageWatcher {
         root: AbsoluteSystemPathBuf,
         recv: broadcast::Receiver<Result<Event, NotifyError>>,
         discovery: T,
-    ) -> Self {
+    ) -> Result<Self, package_manager::Error> {
         let (exit_tx, exit_rx) = oneshot::channel();
         let package_data: Arc<Mutex<_>> = Default::default();
-        let subscriber = Subscriber::new(exit_rx, root, package_data.clone(), recv, discovery);
+        let subscriber = Subscriber::new(exit_rx, root, package_data.clone(), recv, discovery)?;
         let handle = tokio::spawn(subscriber.watch());
-        Self {
+        Ok(Self {
             _exit_tx: exit_tx,
             _handle: handle,
             package_data,
-        }
+        })
     }
 
     pub async fn get_package_data(&self) -> Vec<PackageData> {
@@ -71,18 +74,18 @@ impl<T: PackageDiscovery + Send + 'static> Subscriber<T> {
         package_data: Arc<Mutex<HashMap<AbsoluteSystemPathBuf, PackageData>>>,
         recv: broadcast::Receiver<Result<Event, NotifyError>>,
         discovery: T,
-    ) -> Self {
-        let manager = PackageManager::get_package_manager(&repo_root, None).unwrap();
+    ) -> Result<Self, Error> {
+        let manager = PackageManager::get_package_manager(&repo_root, None)?;
 
-        Self {
+        Ok(Self {
             exit_rx,
-            filter: manager.get_workspace_globs(&repo_root).unwrap(),
+            filter: manager.get_workspace_globs(&repo_root)?,
             package_data,
             recv,
             manager,
             repo_root,
             discovery,
-        }
+        })
     }
 
     async fn watch(mut self) {
@@ -138,9 +141,14 @@ impl<T: PackageDiscovery + Send + 'static> Subscriber<T> {
             // if the glob list has changed, do a recursive walk and replace
             self.rediscover_packages().await;
         } else {
-            for path in file_event.paths {
-                let path_file = AbsoluteSystemPathBuf::new(path.as_os_str().to_str().unwrap())
-                    .expect("watched paths are absolute");
+            // if a path is not a valid utf8 string, it is not a valid path, so ignore
+            for path in file_event
+                .paths
+                .iter()
+                .filter_map(|p| p.as_os_str().to_str())
+            {
+                let path_file =
+                    AbsoluteSystemPathBuf::new(path).expect("watched paths are absolute");
 
                 // the path to the workspace this file is in is the parent
                 let path_workspace = path_file
@@ -148,25 +156,41 @@ impl<T: PackageDiscovery + Send + 'static> Subscriber<T> {
                     .expect("watched paths will not be at the root")
                     .to_owned();
 
-                if self
+                let is_workspace = match self
                     .filter
                     .target_is_workspace(&self.repo_root, &path_workspace)
-                    .unwrap()
                 {
+                    Ok(is_workspace) => is_workspace,
+                    Err(e) => {
+                        tracing::error!("error checking if path is in workspace: {:?}", e);
+                        continue;
+                    }
+                };
+
+                if is_workspace {
                     tracing::debug!("tracing file in package: {:?}", path_file);
                     let mut data = self.package_data.lock().await;
                     let package_json = path_workspace.join_component("package.json");
                     let turbo_json = path_workspace.join_component("turbo.json");
-                    data.insert(
-                        path_workspace,
-                        PackageData {
-                            package_json,
-                            turbo_json: tokio::fs::try_exists(&turbo_json)
-                                .await
-                                .ok()
-                                .and_then(|exists| exists.then_some(turbo_json)),
-                        },
+
+                    let (package_exists, turbo_exists) = join!(
+                        tokio::fs::try_exists(&package_json),
+                        tokio::fs::try_exists(&turbo_json)
                     );
+
+                    if let Ok(true) = package_exists {
+                        data.insert(
+                            path_workspace,
+                            PackageData {
+                                package_json,
+                                turbo_json: turbo_exists
+                                    .ok()
+                                    .and_then(|exists| exists.then_some(turbo_json)),
+                            },
+                        );
+                    } else {
+                        data.remove(&path_workspace);
+                    }
                 }
             }
         }
@@ -174,17 +198,16 @@ impl<T: PackageDiscovery + Send + 'static> Subscriber<T> {
 
     async fn rediscover_packages(&mut self) {
         tracing::debug!("rediscovering packages");
-        let workspace = self
-            .discovery
-            .discover_packages()
-            .await
-            .unwrap()
-            .into_iter()
-            .map(|p| (p.package_json.parent().expect("non-root").to_owned(), p))
-            .collect();
-
-        let mut data = self.package_data.lock().await;
-        *data = workspace;
+        if let Ok(data) = self.discovery.discover_packages().await {
+            let workspace = data
+                .into_iter()
+                .map(|p| (p.package_json.parent().expect("non-root").to_owned(), p))
+                .collect();
+            let mut data = self.package_data.lock().await;
+            *data = workspace;
+        } else {
+            tracing::error!("error discovering packages");
+        }
     }
 }
 

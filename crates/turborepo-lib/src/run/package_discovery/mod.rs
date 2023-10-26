@@ -22,11 +22,13 @@ impl<'a, C: Clone + Send> PackageDiscovery for DaemonPackageDiscovery<'a, C> {
             .daemon
             .discover_packages()
             .await
-            .unwrap()
+            .map_err(|_| Error::Failed)?
             .into_iter()
             .map(|p| PackageData {
-                package_json: AbsoluteSystemPathBuf::new(p.package_json).unwrap(),
-                turbo_json: p.turbo_json.map(|t| AbsoluteSystemPathBuf::new(t).unwrap()),
+                package_json: AbsoluteSystemPathBuf::new(p.package_json).expect("absolute"),
+                turbo_json: p
+                    .turbo_json
+                    .map(|t| AbsoluteSystemPathBuf::new(t).expect("absolute")),
             })
             .collect())
     }
@@ -55,8 +57,12 @@ impl PackageDiscovery for WatchingPackageDiscovery {
     async fn discover_packages(&mut self) -> Result<Vec<PackageData>, Error> {
         // need to clone and drop the Ref before we can await
         let watcher = {
-            let watcher = self.watcher.wait_for(|opt| opt.is_some()).await.unwrap();
-            watcher.as_ref().unwrap().clone()
+            let watcher = self
+                .watcher
+                .wait_for(|opt| opt.is_some())
+                .await
+                .map_err(|_| Error::Failed)?;
+            watcher.as_ref().expect("guaranteed some above").clone()
         };
         Ok(watcher.package_watcher.get_package_data().await)
     }

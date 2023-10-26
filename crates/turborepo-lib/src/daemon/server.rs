@@ -107,7 +107,8 @@ async fn start_filewatching(
         repo_root.clone(),
         watcher.subscribe(),
         LocalPackageDiscovery::new(repo_root),
-    );
+    )
+    .map_err(|e| WatchError::Setup(format!("{:?}", e)))?;
     // We can ignore failures here, it means the server is shutting down and
     // receivers have gone out of scope.
     let _ = watcher_tx.send(Some(Arc::new(FileWatching {
@@ -293,7 +294,7 @@ async fn wait_for_filewatching(
         .map_err(|_| RpcError::DeadlineExceeded)? // timeout case
         .map_err(|_| RpcError::NoFileWatching)?; // sender dropped
 
-    return Ok(fw.as_ref().unwrap().clone());
+    return Ok(fw.as_ref().expect("guaranteed some above").clone());
 }
 
 async fn watch_root(
