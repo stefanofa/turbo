@@ -24,7 +24,8 @@ pub struct PackageData {
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    // Repo(#[from] turborepo_repository::Error),
+    #[error("discovery unavailable")]
+    Unavailable,
 }
 
 /// Defines a strategy for discovering packages on the filesystem.
@@ -33,6 +34,15 @@ pub trait PackageDiscovery {
     fn discover_packages(
         &mut self,
     ) -> impl std::future::Future<Output = Result<Vec<PackageData>, Error>> + Send;
+}
+
+impl<T: PackageDiscovery + Send> PackageDiscovery for Option<T> {
+    async fn discover_packages(&mut self) -> Result<Vec<PackageData>, Error> {
+        match self {
+            Some(d) => d.discover_packages().await,
+            None => Err(Error::Unavailable),
+        }
+    }
 }
 
 pub struct LocalPackageDiscovery {
@@ -63,5 +73,27 @@ impl PackageDiscovery for LocalPackageDiscovery {
             })
             .collect()
             .await
+    }
+}
+
+pub struct FallbackPackageDiscovery<A: PackageDiscovery, B: PackageDiscovery> {
+    a: A,
+    b: B,
+    timeout: std::time::Duration,
+}
+
+impl<A: PackageDiscovery + Send, B: PackageDiscovery + Send> PackageDiscovery
+    for FallbackPackageDiscovery<A, B>
+{
+    async fn discover_packages(&mut self) -> Result<Vec<PackageData>, Error> {
+        match tokio::time::timeout(self.timeout, self.a.discover_packages()).await {
+            Ok(Ok(packages)) => Ok(packages),
+            Ok(Err(err1)) => match self.b.discover_packages().await {
+                Ok(packages) => Ok(packages),
+                // if the backup is unavailable, return the original error
+                Err(Error::Unavailable) => Err(err1),
+            },
+            Err(_) => self.b.discover_packages().await,
+        }
     }
 }
