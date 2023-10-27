@@ -1,8 +1,10 @@
-use std::{backtrace::Backtrace, fs::OpenOptions};
+use std::{backtrace::Backtrace, fs::OpenOptions, sync::Arc};
 
 use camino::Utf8Path;
 use serde::{Deserialize, Serialize};
 use turbopath::{AbsoluteSystemPath, AbsoluteSystemPathBuf, AnchoredSystemPathBuf};
+use turborepo_analytics::AnalyticsRecorder;
+use turborepo_api_client::{analytics, analytics::AnalyticsEvent};
 
 use crate::{
     cache_archive::{CacheReader, CacheWriter},
@@ -11,6 +13,7 @@ use crate::{
 
 pub struct FSCache {
     cache_directory: AbsoluteSystemPathBuf,
+    analytics_recorder: Option<Arc<AnalyticsRecorder>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -41,11 +44,29 @@ impl FSCache {
     pub fn new(
         override_dir: Option<&Utf8Path>,
         repo_root: &AbsoluteSystemPath,
+        analytics_recorder: Option<Arc<AnalyticsRecorder>>,
     ) -> Result<Self, CacheError> {
         let cache_directory = Self::resolve_cache_dir(repo_root, override_dir);
         cache_directory.create_dir_all()?;
 
-        Ok(FSCache { cache_directory })
+        Ok(FSCache {
+            cache_directory,
+            analytics_recorder,
+        })
+    }
+
+    fn log_fetch(&self, event: analytics::CacheEvent, hash: &str, duration: u64) {
+        // If analytics fails to record, it's not worth failing the cache
+        if let Some(analytics_recorder) = &self.analytics_recorder {
+            let analytics_event = AnalyticsEvent {
+                session_id: None,
+                source: analytics::CacheSource::Fs,
+                event,
+                hash: hash.to_string(),
+                duration,
+            };
+            let _ = analytics_recorder.log_event(analytics_event);
+        }
     }
 
     pub fn fetch(
@@ -65,6 +86,7 @@ impl FSCache {
         } else if compressed_cache_path.exists() {
             compressed_cache_path
         } else {
+            self.log_fetch(analytics::CacheEvent::Miss, hash, 0);
             return Err(CacheError::CacheMiss);
         };
 
@@ -77,6 +99,8 @@ impl FSCache {
                 .cache_directory
                 .join_component(&format!("{}-meta.json", hash)),
         )?;
+
+        self.log_fetch(analytics::CacheEvent::Hit, hash, meta.duration);
 
         Ok((
             CacheResponse {

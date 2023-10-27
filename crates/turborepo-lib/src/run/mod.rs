@@ -19,6 +19,8 @@ use itertools::Itertools;
 use rayon::iter::ParallelBridge;
 use tracing::{debug, info};
 use turbopath::AbsoluteSystemPathBuf;
+use turborepo_analytics::AnalyticsRecorder;
+use turborepo_api_client::{APIAuth, APIClient};
 use turborepo_cache::{AsyncCache, RemoteCacheOpts};
 use turborepo_ci::Vendor;
 use turborepo_env::EnvironmentVariableMap;
@@ -60,6 +62,16 @@ impl<'a> Run<'a> {
 
     fn opts(&self) -> Result<Opts> {
         self.base.args().try_into()
+    }
+
+    fn initialize_analytics_recorder(
+        api_auth: Option<APIAuth>,
+        api_client: APIClient,
+    ) -> Option<Arc<AnalyticsRecorder>> {
+        // If there's no API auth, we don't want to record analytics
+        let api_auth = api_auth?;
+
+        Some(Arc::new(AnalyticsRecorder::new(api_auth, api_client)))
     }
 
     fn print_run_prelude(&self, opts: &Opts<'_>, filtered_pkgs: &HashSet<WorkspaceName>) {
@@ -203,11 +215,15 @@ impl<'a> Run<'a> {
 
         let env_at_execution_start = EnvironmentVariableMap::infer();
 
+        let analytics_recorder =
+            Self::initialize_analytics_recorder(api_auth.clone(), api_client.clone());
+
         let async_cache = AsyncCache::new(
             &opts.cache_opts,
             &self.base.repo_root,
             api_client.clone(),
             api_auth.clone(),
+            analytics_recorder,
         )?;
 
         info!("created cache");
@@ -515,6 +531,7 @@ impl<'a> Run<'a> {
             &self.base.repo_root,
             api_client.clone(),
             api_auth.clone(),
+            None,
         )?;
 
         let color_selector = ColorSelector::default();

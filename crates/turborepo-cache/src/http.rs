@@ -1,7 +1,10 @@
-use std::{backtrace::Backtrace, io::Write};
+use std::{backtrace::Backtrace, io::Write, sync::Arc};
 
 use turbopath::{AbsoluteSystemPath, AbsoluteSystemPathBuf, AnchoredSystemPathBuf};
-use turborepo_api_client::{APIAuth, APIClient, Client, Response};
+use turborepo_analytics::AnalyticsRecorder;
+use turborepo_api_client::{
+    analytics, analytics::AnalyticsEvent, APIAuth, APIClient, Client, Response,
+};
 
 use crate::{
     cache_archive::{CacheReader, CacheWriter},
@@ -14,6 +17,7 @@ pub struct HTTPCache {
     signer_verifier: Option<ArtifactSignatureAuthenticator>,
     repo_root: AbsoluteSystemPathBuf,
     api_auth: APIAuth,
+    analytics_recorder: Option<Arc<AnalyticsRecorder>>,
 }
 
 impl HTTPCache {
@@ -22,6 +26,7 @@ impl HTTPCache {
         opts: &CacheOpts,
         repo_root: AbsoluteSystemPathBuf,
         api_auth: APIAuth,
+        analytics_recorder: Option<Arc<AnalyticsRecorder>>,
     ) -> HTTPCache {
         let signer_verifier = if opts
             .remote_cache_opts
@@ -41,6 +46,7 @@ impl HTTPCache {
             signer_verifier,
             repo_root,
             api_auth,
+            analytics_recorder,
         }
     }
 
@@ -120,6 +126,20 @@ impl HTTPCache {
         }
     }
 
+    fn log_fetch(&self, event: analytics::CacheEvent, hash: &str, duration: u64) {
+        // If analytics fails to record, it's not worth failing the cache
+        if let Some(analytics_recorder) = &self.analytics_recorder {
+            let analytics_event = AnalyticsEvent {
+                session_id: None,
+                source: analytics::CacheSource::Http,
+                event,
+                hash: hash.to_string(),
+                duration,
+            };
+            let _ = analytics_recorder.log_event(analytics_event);
+        }
+    }
+
     pub async fn fetch(
         &self,
         hash: &str,
@@ -132,7 +152,16 @@ impl HTTPCache {
                 &self.api_auth.team_id,
                 self.api_auth.team_slug.as_deref(),
             )
-            .await?;
+            .await;
+
+        let response = match response {
+            Err(turborepo_api_client::Error::CacheMiss) => {
+                self.log_fetch(analytics::CacheEvent::Miss, hash, 0);
+                return Err(CacheError::CacheMiss);
+            }
+            Err(e) => return Err(e.into()),
+            Ok(response) => response,
+        };
 
         let duration = Self::get_duration_from_response(&response)?;
 
@@ -170,6 +199,8 @@ impl HTTPCache {
         };
 
         let files = Self::restore_tar(&self.repo_root, &body)?;
+
+        self.log_fetch(analytics::CacheEvent::Hit, hash, duration);
 
         Ok((
             CacheResponse {
