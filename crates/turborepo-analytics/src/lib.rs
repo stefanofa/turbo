@@ -9,8 +9,8 @@ use tokio::{
     task::{JoinError, JoinHandle},
 };
 use tracing::debug;
-pub use turborepo_api_client::analytics::AnalyticsEvent;
-use turborepo_api_client::{analytics::AnalyticsClient, APIAuth};
+use turborepo_api_client::{APIAuth, APIClient};
+pub use turborepo_vercel_api::AnalyticsEvent;
 use uuid::Uuid;
 
 const BUFFER_THRESHOLD: usize = 10;
@@ -28,37 +28,39 @@ pub enum Error {
     Join(#[from] JoinError),
 }
 
-pub struct AnalyticsRecorder {
-    tx: mpsc::Sender<AnalyticsEvent>,
+// We have two different types because the AnalyticsSender should be shared
+// across threads (i.e. Clone + Send), while the AnalyticsHandle cannot be
+// shared since it contains the structs necessary to shut down the worker.
+pub type AnalyticsSender = mpsc::Sender<AnalyticsEvent>;
+
+pub struct AnalyticsHandle {
     exit_ch: oneshot::Receiver<()>,
     handle: JoinHandle<()>,
 }
 
-impl AnalyticsRecorder {
-    pub fn new(
-        api_auth: APIAuth,
-        client: impl AnalyticsClient + Clone + Send + Sync + 'static,
-    ) -> Self {
-        let (tx, rx) = mpsc::channel(CHANNEL_SIZE);
-        let (cancel_tx, cancel_rx) = oneshot::channel();
-        let session_id = Uuid::new_v4();
-        let worker = Worker {
-            rx,
-            buffer: Vec::new(),
-            session_id,
-            api_auth,
-            exit_ch: cancel_tx,
-            client,
-        };
-        let handle = worker.start();
+pub fn start_analytics(api_auth: APIAuth, client: APIClient) -> (AnalyticsSender, AnalyticsHandle) {
+    let (tx, rx) = mpsc::channel(CHANNEL_SIZE);
+    let (cancel_tx, cancel_rx) = oneshot::channel();
+    let session_id = Uuid::new_v4();
+    let worker = Worker {
+        rx,
+        buffer: Vec::new(),
+        session_id,
+        api_auth,
+        exit_ch: cancel_tx,
+        client,
+    };
+    let handle = worker.start();
 
-        Self {
-            tx,
-            exit_ch: cancel_rx,
-            handle,
-        }
-    }
+    let analytics_handle = AnalyticsHandle {
+        exit_ch: cancel_rx,
+        handle,
+    };
 
+    (tx, analytics_handle)
+}
+
+impl AnalyticsHandle {
     async fn close(self) -> Result<(), Error> {
         drop(self.exit_ch);
         self.handle.await?;
@@ -69,26 +71,19 @@ impl AnalyticsRecorder {
     pub async fn close_with_timeout(self) {
         let _ = tokio::time::timeout(EVENT_TIMEOUT, self.close()).await;
     }
-
-    pub fn log_event(&self, event: AnalyticsEvent) -> Result<(), Error> {
-        // Blocking so we don't have to make `fs_cache` async
-        self.tx.blocking_send(event)?;
-
-        Ok(())
-    }
 }
 
-struct Worker<R> {
+struct Worker {
     rx: mpsc::Receiver<AnalyticsEvent>,
     buffer: Vec<AnalyticsEvent>,
     session_id: Uuid,
     api_auth: APIAuth,
     // Used to cancel the worker
     exit_ch: oneshot::Sender<()>,
-    client: R,
+    client: APIClient,
 }
 
-impl<R: AnalyticsClient + Clone + Send + Sync + 'static> Worker<R> {
+impl Worker {
     pub fn start(mut self) -> JoinHandle<()> {
         tokio::spawn(async move {
             let mut timeout = tokio::time::sleep(NO_TIMEOUT);

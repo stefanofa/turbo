@@ -19,7 +19,7 @@ use itertools::Itertools;
 use rayon::iter::ParallelBridge;
 use tracing::{debug, info};
 use turbopath::AbsoluteSystemPathBuf;
-use turborepo_analytics::AnalyticsRecorder;
+use turborepo_analytics::{start_analytics, AnalyticsHandle, AnalyticsSender};
 use turborepo_api_client::{APIAuth, APIClient};
 use turborepo_cache::{AsyncCache, RemoteCacheOpts};
 use turborepo_ci::Vendor;
@@ -64,14 +64,14 @@ impl<'a> Run<'a> {
         self.base.args().try_into()
     }
 
-    fn initialize_analytics_recorder(
+    fn initialize_analytics(
         api_auth: Option<APIAuth>,
         api_client: APIClient,
-    ) -> Option<Arc<AnalyticsRecorder>> {
+    ) -> Option<(AnalyticsSender, AnalyticsHandle)> {
         // If there's no API auth, we don't want to record analytics
         let api_auth = api_auth?;
 
-        Some(Arc::new(AnalyticsRecorder::new(api_auth, api_client)))
+        Some(start_analytics(api_auth, api_client))
     }
 
     fn print_run_prelude(&self, opts: &Opts<'_>, filtered_pkgs: &HashSet<WorkspaceName>) {
@@ -215,15 +215,15 @@ impl<'a> Run<'a> {
 
         let env_at_execution_start = EnvironmentVariableMap::infer();
 
-        let analytics_recorder =
-            Self::initialize_analytics_recorder(api_auth.clone(), api_client.clone());
+        let (analytics_sender, analytics_handle) =
+            Self::initialize_analytics(api_auth.clone(), api_client.clone()).unzip();
 
         let async_cache = AsyncCache::new(
             &opts.cache_opts,
             &self.base.repo_root,
             api_client.clone(),
             api_auth.clone(),
-            analytics_recorder,
+            analytics_sender,
         )?;
 
         info!("created cache");
@@ -412,6 +412,10 @@ impl<'a> Run<'a> {
                 &env_at_execution_start,
             )
             .await?;
+
+        if let Some(analytics_handle) = analytics_handle {
+            analytics_handle.close_with_timeout().await;
+        }
 
         Ok(exit_code)
     }

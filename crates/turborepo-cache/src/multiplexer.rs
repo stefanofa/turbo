@@ -1,11 +1,8 @@
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use tracing::{debug, warn};
 use turbopath::{AbsoluteSystemPath, AnchoredSystemPathBuf};
-use turborepo_analytics::AnalyticsRecorder;
+use turborepo_analytics::AnalyticsSender;
 use turborepo_api_client::{APIAuth, APIClient};
 
 use crate::{fs::FSCache, http::HTTPCache, CacheError, CacheOpts, CacheResponse};
@@ -26,7 +23,7 @@ impl CacheMultiplexer {
         repo_root: &AbsoluteSystemPath,
         api_client: APIClient,
         api_auth: Option<APIAuth>,
-        analytics_recorder: Option<Arc<AnalyticsRecorder>>,
+        analytics_recorder: Option<AnalyticsSender>,
     ) -> Result<Self, CacheError> {
         let use_fs_cache = !opts.skip_filesystem;
         let use_http_cache = !opts.skip_remote;
@@ -111,7 +108,7 @@ impl CacheMultiplexer {
         key: &str,
     ) -> Result<(CacheResponse, Vec<AnchoredSystemPathBuf>), CacheError> {
         if let Some(fs) = &self.fs {
-            if let Ok(cache_response) = fs.fetch(anchor, key) {
+            if let Ok(cache_response) = fs.fetch(anchor, key).await {
                 return Ok(cache_response);
             }
         }

@@ -10319,6 +10319,7 @@ dependencies = [
  "tokio",
  "tracing",
  "turborepo-api-client",
+ "turborepo-vercel-api",
  "uuid",
 ]
 
@@ -10388,6 +10389,7 @@ dependencies = [
  "path-clean 1.0.1",
  "petgraph",
  "port_scanner",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2",

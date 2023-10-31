@@ -1,7 +1,7 @@
-use std::{backtrace::Backtrace, io::Write, sync::Arc};
+use std::{backtrace::Backtrace, io::Write};
 
 use turbopath::{AbsoluteSystemPath, AbsoluteSystemPathBuf, AnchoredSystemPathBuf};
-use turborepo_analytics::AnalyticsRecorder;
+use turborepo_analytics::AnalyticsSender;
 use turborepo_api_client::{
     analytics, analytics::AnalyticsEvent, APIAuth, APIClient, Client, Response,
 };
@@ -17,7 +17,7 @@ pub struct HTTPCache {
     signer_verifier: Option<ArtifactSignatureAuthenticator>,
     repo_root: AbsoluteSystemPathBuf,
     api_auth: APIAuth,
-    analytics_recorder: Option<Arc<AnalyticsRecorder>>,
+    analytics_recorder: Option<AnalyticsSender>,
 }
 
 impl HTTPCache {
@@ -26,7 +26,7 @@ impl HTTPCache {
         opts: &CacheOpts,
         repo_root: AbsoluteSystemPathBuf,
         api_auth: APIAuth,
-        analytics_recorder: Option<Arc<AnalyticsRecorder>>,
+        analytics_recorder: Option<AnalyticsSender>,
     ) -> HTTPCache {
         let signer_verifier = if opts
             .remote_cache_opts
@@ -126,17 +126,17 @@ impl HTTPCache {
         }
     }
 
-    fn log_fetch(&self, event: analytics::CacheEvent, hash: &str, duration: u64) {
+    async fn log_fetch(&self, event: analytics::CacheEvent, hash: &str, duration: u64) {
         // If analytics fails to record, it's not worth failing the cache
         if let Some(analytics_recorder) = &self.analytics_recorder {
             let analytics_event = AnalyticsEvent {
                 session_id: None,
-                source: analytics::CacheSource::Http,
+                source: analytics::CacheSource::Remote,
                 event,
                 hash: hash.to_string(),
                 duration,
             };
-            let _ = analytics_recorder.log_event(analytics_event);
+            let _ = analytics_recorder.send(analytics_event).await;
         }
     }
 
@@ -156,7 +156,7 @@ impl HTTPCache {
 
         let response = match response {
             Err(turborepo_api_client::Error::CacheMiss) => {
-                self.log_fetch(analytics::CacheEvent::Miss, hash, 0);
+                self.log_fetch(analytics::CacheEvent::Miss, hash, 0).await;
                 return Err(CacheError::CacheMiss);
             }
             Err(e) => return Err(e.into()),
@@ -200,7 +200,8 @@ impl HTTPCache {
 
         let files = Self::restore_tar(&self.repo_root, &body)?;
 
-        self.log_fetch(analytics::CacheEvent::Hit, hash, duration);
+        self.log_fetch(analytics::CacheEvent::Hit, hash, duration)
+            .await;
 
         Ok((
             CacheResponse {
@@ -222,17 +223,20 @@ impl HTTPCache {
 
 #[cfg(test)]
 mod test {
+    use std::{assert_matches::assert_matches, sync::Arc};
+
     use anyhow::Result;
     use futures::future::try_join_all;
     use tempfile::tempdir;
     use turbopath::AbsoluteSystemPathBuf;
+    use turborepo_analytics::AnalyticsRecorder;
     use turborepo_api_client::APIClient;
     use turborepo_vercel_api_mock::start_test_server;
 
     use crate::{
         http::{APIAuth, HTTPCache},
         test_cases::{get_test_cases, TestCase},
-        CacheOpts, CacheSource,
+        CacheError, CacheOpts, CacheSource,
     };
 
     #[tokio::test]
@@ -269,8 +273,22 @@ mod test {
             token: "my-token".to_string(),
             team_slug: None,
         };
+        let analytics_recorder = Some(Arc::new(AnalyticsRecorder::new(
+            api_auth.clone(),
+            api_client.clone(),
+        )));
 
-        let cache = HTTPCache::new(api_client, &opts, repo_root_path.to_owned(), api_auth);
+        let cache = HTTPCache::new(
+            api_client,
+            &opts,
+            repo_root_path.to_owned(),
+            api_auth,
+            analytics_recorder,
+        );
+
+        // Should be a cache miss at first
+        let err = cache.fetch(hash).await.unwrap_err();
+        assert_matches!(err, CacheError::CacheMiss);
 
         let anchored_files: Vec<_> = files.iter().map(|f| f.path().to_owned()).collect();
         cache

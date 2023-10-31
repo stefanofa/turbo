@@ -1,49 +1,10 @@
-use async_trait::async_trait;
 use reqwest::Method;
-use serde::Serialize;
+pub use turborepo_vercel_api::{AnalyticsEvent, CacheEvent, CacheSource};
 
 use crate::{retry, APIAuth, APIClient, Error};
 
-#[derive(Serialize)]
-pub enum CacheSource {
-    Http,
-    Fs,
-}
-
-#[derive(Serialize)]
-pub enum CacheEvent {
-    Hit,
-    Miss,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AnalyticsEvent {
-    pub session_id: Option<String>,
-    pub source: CacheSource,
-    pub event: CacheEvent,
-    pub hash: String,
-    pub duration: u64,
-}
-
-impl AnalyticsEvent {
-    pub fn set_session_id(&mut self, id: String) {
-        self.session_id = Some(id);
-    }
-}
-
-#[async_trait]
-pub trait AnalyticsClient {
-    async fn record_analytics(
-        &self,
-        api_auth: &APIAuth,
-        events: Vec<AnalyticsEvent>,
-    ) -> Result<(), Error>;
-}
-
-#[async_trait]
-impl AnalyticsClient for APIClient {
-    async fn record_analytics(
+impl APIClient {
+    pub async fn record_analytics(
         &self,
         api_auth: &APIAuth,
         events: Vec<AnalyticsEvent>,

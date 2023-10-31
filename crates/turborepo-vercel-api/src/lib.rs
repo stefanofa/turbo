@@ -124,3 +124,32 @@ pub struct APIError {
     pub code: String,
     pub message: String,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum CacheSource {
+    Local,
+    Remote,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum CacheEvent {
+    Hit,
+    Miss,
+}
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalyticsEvent {
+    pub session_id: Option<String>,
+    pub source: CacheSource,
+    pub event: CacheEvent,
+    pub hash: String,
+    pub duration: u64,
+}
+
+impl AnalyticsEvent {
+    pub fn set_session_id(&mut self, id: String) {
+        self.session_id = Some(id);
+    }
+}

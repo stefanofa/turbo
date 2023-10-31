@@ -1,9 +1,9 @@
-use std::{backtrace::Backtrace, fs::OpenOptions, sync::Arc};
+use std::{backtrace::Backtrace, fs::OpenOptions};
 
 use camino::Utf8Path;
 use serde::{Deserialize, Serialize};
 use turbopath::{AbsoluteSystemPath, AbsoluteSystemPathBuf, AnchoredSystemPathBuf};
-use turborepo_analytics::AnalyticsRecorder;
+use turborepo_analytics::AnalyticsSender;
 use turborepo_api_client::{analytics, analytics::AnalyticsEvent};
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
 
 pub struct FSCache {
     cache_directory: AbsoluteSystemPathBuf,
-    analytics_recorder: Option<Arc<AnalyticsRecorder>>,
+    analytics_recorder: Option<AnalyticsSender>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -44,7 +44,7 @@ impl FSCache {
     pub fn new(
         override_dir: Option<&Utf8Path>,
         repo_root: &AbsoluteSystemPath,
-        analytics_recorder: Option<Arc<AnalyticsRecorder>>,
+        analytics_recorder: Option<AnalyticsSender>,
     ) -> Result<Self, CacheError> {
         let cache_directory = Self::resolve_cache_dir(repo_root, override_dir);
         cache_directory.create_dir_all()?;
@@ -55,21 +55,21 @@ impl FSCache {
         })
     }
 
-    fn log_fetch(&self, event: analytics::CacheEvent, hash: &str, duration: u64) {
+    async fn log_fetch(&self, event: analytics::CacheEvent, hash: &str, duration: u64) {
         // If analytics fails to record, it's not worth failing the cache
         if let Some(analytics_recorder) = &self.analytics_recorder {
             let analytics_event = AnalyticsEvent {
                 session_id: None,
-                source: analytics::CacheSource::Fs,
+                source: analytics::CacheSource::Local,
                 event,
                 hash: hash.to_string(),
                 duration,
             };
-            let _ = analytics_recorder.log_event(analytics_event);
+            let _ = analytics_recorder.send(analytics_event).await;
         }
     }
 
-    pub fn fetch(
+    pub async fn fetch(
         &self,
         anchor: &AbsoluteSystemPath,
         hash: &str,
@@ -86,7 +86,7 @@ impl FSCache {
         } else if compressed_cache_path.exists() {
             compressed_cache_path
         } else {
-            self.log_fetch(analytics::CacheEvent::Miss, hash, 0);
+            self.log_fetch(analytics::CacheEvent::Miss, hash, 0).await;
             return Err(CacheError::CacheMiss);
         };
 
@@ -100,7 +100,8 @@ impl FSCache {
                 .join_component(&format!("{}-meta.json", hash)),
         )?;
 
-        self.log_fetch(analytics::CacheEvent::Hit, hash, meta.duration);
+        self.log_fetch(analytics::CacheEvent::Hit, hash, meta.duration)
+            .await;
 
         Ok((
             CacheResponse {
@@ -183,23 +184,66 @@ mod test {
     use futures::future::try_join_all;
     use tempfile::tempdir;
     use turbopath::AnchoredSystemPath;
+    use turborepo_analytics::start_analytics;
+    use turborepo_api_client::{APIAuth, APIClient};
+    use turborepo_vercel_api_mock::start_test_server;
 
     use super::*;
-    use crate::test_cases::{get_test_cases, TestCase};
+    use crate::{
+        test_cases::{get_test_cases, TestCase},
+        CacheOpts,
+    };
 
     #[tokio::test]
     async fn test_fs_cache() -> Result<()> {
-        try_join_all(get_test_cases().into_iter().map(round_trip_test)).await?;
+        let port = port_scanner::request_open_port().unwrap();
+        tokio::spawn(start_test_server(port));
+
+        let test_cases = get_test_cases();
+
+        try_join_all(
+            test_cases
+                .iter()
+                .map(|test_case| round_trip_test(test_case, port)),
+        )
+        .await?;
+
+        let response =
+            reqwest::get(format!("http://localhost:{}/v8/artifacts/events", port)).await?;
+        assert_eq!(response.status(), 200);
+        println!("{:?}", response.text().await?);
+        // let mut analytics_events: Vec<AnalyticsEvent> = response.json().await?;
+        //
+        // for test_case in test_cases {
+        //     let first_event = analytics_events.pop().unwrap();
+        //     assert_matches!(first_event.source, analytics::CacheSource::Local);
+        //     assert_eq!(first_event.hash, test_case.hash);
+        //     assert_matches!(first_event.event, analytics::CacheEvent::Miss);
+        //
+        //     let second_event = analytics_events.pop().unwrap();
+        //     assert_matches!(second_event.source, analytics::CacheSource::Local);
+        //     assert_eq!(second_event.hash, test_case.hash);
+        //     assert_matches!(second_event.event, analytics::CacheEvent::Hit);
+        // }
 
         Ok(())
     }
 
-    async fn round_trip_test(test_case: TestCase) -> Result<()> {
+    async fn round_trip_test(test_case: &TestCase, port: u16) -> Result<()> {
         let repo_root = tempdir()?;
         let repo_root_path = AbsoluteSystemPath::from_std_path(repo_root.path())?;
         test_case.initialize(repo_root_path)?;
 
-        let cache = FSCache::new(None, repo_root_path)?;
+        let api_client = APIClient::new(format!("http://localhost:{}", port), 200, "2.0.0", true)?;
+        let api_auth = APIAuth {
+            team_id: "my-team".to_string(),
+            token: "my-token".to_string(),
+            team_slug: None,
+        };
+        let (analytics_sender, analytics_handle) =
+            start_analytics(api_auth.clone(), api_client.clone())?;
+
+        let cache = FSCache::new(None, repo_root_path, Some(analytics_sender.clone()))?;
 
         let expected_miss = cache
             .exists(test_case.hash)
@@ -222,7 +266,7 @@ mod test {
             }
         );
 
-        let (status, files) = cache.fetch(repo_root_path, test_case.hash)?;
+        let (status, files) = cache.fetch(repo_root_path, test_case.hash).await?;
         assert_eq!(
             status,
             CacheResponse {
@@ -243,6 +287,7 @@ mod test {
             }
         }
 
+        analytics_recorder.close_with_timeout().await;
         Ok(())
     }
 }
