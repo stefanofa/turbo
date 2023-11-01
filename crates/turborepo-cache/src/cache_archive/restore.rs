@@ -17,12 +17,15 @@ use crate::{
 };
 
 pub struct CacheReader<'a> {
-    reader: Box<dyn Read + 'a>,
+    reader: Box<dyn Read + Send + 'a>,
 }
 
 impl<'a> CacheReader<'a> {
-    pub fn from_reader(reader: impl Read + 'a, is_compressed: bool) -> Result<Self, CacheError> {
-        let reader: Box<dyn Read> = if is_compressed {
+    pub fn from_reader(
+        reader: impl Read + Send + 'a,
+        is_compressed: bool,
+    ) -> Result<Self, CacheError> {
+        let reader: Box<dyn Read + Send> = if is_compressed {
             Box::new(zstd::Decoder::new(reader)?)
         } else {
             Box::new(reader)
@@ -35,7 +38,7 @@ impl<'a> CacheReader<'a> {
         let file = path.open()?;
         let is_compressed = path.extension() == Some("zst");
 
-        let reader: Box<dyn Read> = if is_compressed {
+        let reader: Box<dyn Read + Send> = if is_compressed {
             Box::new(zstd::Decoder::new(file)?)
         } else {
             Box::new(file)
