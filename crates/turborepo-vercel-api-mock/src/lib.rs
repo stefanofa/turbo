@@ -216,9 +216,14 @@ pub async fn start_test_server(port: u16) -> Result<()> {
         )
         .route(
             "/v8/artifacts/events",
-            post(|Json(analytics_event): Json<AnalyticsEvent>| async move {
-                post_analytics_events_ref.lock().await.push(analytics_event);
-            }),
+            post(
+                |Json(analytics_events): Json<Vec<AnalyticsEvent>>| async move {
+                    post_analytics_events_ref
+                        .lock()
+                        .await
+                        .extend(analytics_events);
+                },
+            ),
         )
         .route(
             "/v8/artifacts/events",

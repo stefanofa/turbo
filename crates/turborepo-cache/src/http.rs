@@ -223,19 +223,19 @@ impl HTTPCache {
 
 #[cfg(test)]
 mod test {
-    use std::{assert_matches::assert_matches, sync::Arc};
+    use std::assert_matches::assert_matches;
 
     use anyhow::Result;
     use futures::future::try_join_all;
     use tempfile::tempdir;
     use turbopath::AbsoluteSystemPathBuf;
-    use turborepo_analytics::AnalyticsRecorder;
-    use turborepo_api_client::APIClient;
+    use turborepo_analytics::start_analytics;
+    use turborepo_api_client::{analytics, APIClient};
     use turborepo_vercel_api_mock::start_test_server;
 
     use crate::{
         http::{APIAuth, HTTPCache},
-        test_cases::{get_test_cases, TestCase},
+        test_cases::{get_test_cases, validate_analytics, TestCase},
         CacheError, CacheOpts, CacheSource,
     };
 
@@ -243,28 +243,28 @@ mod test {
     async fn test_http_cache() -> Result<()> {
         let port = port_scanner::request_open_port().unwrap();
         let handle = tokio::spawn(start_test_server(port));
+        let test_cases = get_test_cases();
 
         try_join_all(
-            get_test_cases()
-                .into_iter()
+            test_cases
+                .iter()
                 .map(|test_case| round_trip_test(test_case, port)),
         )
         .await?;
 
+        validate_analytics(&test_cases, analytics::CacheSource::Remote, port).await?;
         handle.abort();
         Ok(())
     }
 
-    async fn round_trip_test(test_case: TestCase, port: u16) -> Result<()> {
+    async fn round_trip_test(test_case: &TestCase, port: u16) -> Result<()> {
         let repo_root = tempdir()?;
         let repo_root_path = AbsoluteSystemPathBuf::try_from(repo_root.path())?;
         test_case.initialize(&repo_root_path)?;
 
-        let TestCase {
-            hash,
-            files,
-            duration,
-        } = test_case;
+        let hash = test_case.hash;
+        let files = &test_case.files;
+        let duration = test_case.duration;
 
         let api_client = APIClient::new(format!("http://localhost:{}", port), 200, "2.0.0", true)?;
         let opts = CacheOpts::default();
@@ -273,17 +273,15 @@ mod test {
             token: "my-token".to_string(),
             team_slug: None,
         };
-        let analytics_recorder = Some(Arc::new(AnalyticsRecorder::new(
-            api_auth.clone(),
-            api_client.clone(),
-        )));
+        let (analytics_recorder, analytics_handle) =
+            start_analytics(api_auth.clone(), api_client.clone());
 
         let cache = HTTPCache::new(
             api_client,
             &opts,
             repo_root_path.to_owned(),
             api_auth,
-            analytics_recorder,
+            Some(analytics_recorder),
         );
 
         // Should be a cache miss at first
@@ -312,6 +310,8 @@ mod test {
                 assert!(file_path.exists());
             }
         }
+
+        analytics_handle.close_with_timeout().await;
 
         Ok(())
     }

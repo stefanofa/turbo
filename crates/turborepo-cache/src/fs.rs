@@ -65,6 +65,7 @@ impl FSCache {
                 hash: hash.to_string(),
                 duration,
             };
+
             let _ = analytics_recorder.send(analytics_event).await;
         }
     }
@@ -189,10 +190,7 @@ mod test {
     use turborepo_vercel_api_mock::start_test_server;
 
     use super::*;
-    use crate::{
-        test_cases::{get_test_cases, TestCase},
-        CacheOpts,
-    };
+    use crate::test_cases::{get_test_cases, validate_analytics, TestCase};
 
     #[tokio::test]
     async fn test_fs_cache() -> Result<()> {
@@ -208,24 +206,7 @@ mod test {
         )
         .await?;
 
-        let response =
-            reqwest::get(format!("http://localhost:{}/v8/artifacts/events", port)).await?;
-        assert_eq!(response.status(), 200);
-        println!("{:?}", response.text().await?);
-        // let mut analytics_events: Vec<AnalyticsEvent> = response.json().await?;
-        //
-        // for test_case in test_cases {
-        //     let first_event = analytics_events.pop().unwrap();
-        //     assert_matches!(first_event.source, analytics::CacheSource::Local);
-        //     assert_eq!(first_event.hash, test_case.hash);
-        //     assert_matches!(first_event.event, analytics::CacheEvent::Miss);
-        //
-        //     let second_event = analytics_events.pop().unwrap();
-        //     assert_matches!(second_event.source, analytics::CacheSource::Local);
-        //     assert_eq!(second_event.hash, test_case.hash);
-        //     assert_matches!(second_event.event, analytics::CacheEvent::Hit);
-        // }
-
+        validate_analytics(&test_cases, analytics::CacheSource::Local, port).await?;
         Ok(())
     }
 
@@ -241,12 +222,13 @@ mod test {
             team_slug: None,
         };
         let (analytics_sender, analytics_handle) =
-            start_analytics(api_auth.clone(), api_client.clone())?;
+            start_analytics(api_auth.clone(), api_client.clone());
 
         let cache = FSCache::new(None, repo_root_path, Some(analytics_sender.clone()))?;
 
         let expected_miss = cache
-            .exists(test_case.hash)
+            .fetch(repo_root_path, test_case.hash)
+            .await
             .expect_err("Expected cache miss");
         assert_matches!(expected_miss, CacheError::CacheMiss);
 
@@ -287,7 +269,7 @@ mod test {
             }
         }
 
-        analytics_recorder.close_with_timeout().await;
+        analytics_handle.close_with_timeout().await;
         Ok(())
     }
 }

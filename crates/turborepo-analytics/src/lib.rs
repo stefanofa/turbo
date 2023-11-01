@@ -2,6 +2,7 @@
 
 use std::time::Duration;
 
+use futures::stream::FuturesUnordered;
 use thiserror::Error;
 use tokio::{
     select,
@@ -47,6 +48,7 @@ pub fn start_analytics(api_auth: APIAuth, client: APIClient) -> (AnalyticsSender
         buffer: Vec::new(),
         session_id,
         api_auth,
+        senders: FuturesUnordered::new(),
         exit_ch: cancel_tx,
         client,
     };
@@ -69,7 +71,9 @@ impl AnalyticsHandle {
     }
 
     pub async fn close_with_timeout(self) {
-        let _ = tokio::time::timeout(EVENT_TIMEOUT, self.close()).await;
+        if let Err(err) = tokio::time::timeout(EVENT_TIMEOUT, self.close()).await {
+            debug!("failed to close analytics handle. error: {}", err)
+        }
     }
 }
 
@@ -78,6 +82,7 @@ struct Worker {
     buffer: Vec<AnalyticsEvent>,
     session_id: Uuid,
     api_auth: APIAuth,
+    senders: FuturesUnordered<JoinHandle<()>>,
     // Used to cancel the worker
     exit_ch: oneshot::Sender<()>,
     client: APIClient,
@@ -89,54 +94,61 @@ impl Worker {
             let mut timeout = tokio::time::sleep(NO_TIMEOUT);
             loop {
                 select! {
+                    // We want the events to be prioritized over closing
+                    biased;
                     event = self.rx.recv() => {
                         if let Some(event) = event {
                             self.buffer.push(event);
                         }
                         if self.buffer.len() == BUFFER_THRESHOLD {
-                            self.flush();
+                            self.flush_events();
                             timeout = tokio::time::sleep(NO_TIMEOUT);
                         } else {
                             timeout = tokio::time::sleep(REQUEST_TIMEOUT);
                         }
                     }
                     _ = timeout => {
-                        self.flush();
+                        self.flush_events();
                         timeout = tokio::time::sleep(NO_TIMEOUT);
                     }
                     _ = self.exit_ch.closed() => {
-                        self.flush();
+                        self.flush_events();
+                        for handle in self.senders {
+                            if let Err(err) = handle.await {
+                                debug!("failed to send analytics event. error: {}", err)
+                            }
+                        }
                         return;
                     }
                 }
             }
         })
     }
-    pub fn flush(&mut self) {
+
+    pub fn flush_events(&mut self) {
         if !self.buffer.is_empty() {
             let events = std::mem::take(&mut self.buffer);
-            self.send_events(events);
+            let handle = self.send_events(events);
+            self.senders.push(handle);
         }
     }
 
-    fn send_events(&self, mut events: Vec<AnalyticsEvent>) {
+    fn send_events(&self, mut events: Vec<AnalyticsEvent>) -> JoinHandle<()> {
         let session_id = self.session_id.clone();
         let client = self.client.clone();
         let api_auth = self.api_auth.clone();
+        add_session_id(session_id, &mut events);
+
         tokio::spawn(async move {
-            add_session_id(session_id, &mut events);
             // We don't log an error for a timeout because
             // that's what the Go code does.
-            if let Err(err) =
+            if let Ok(Err(err)) =
                 tokio::time::timeout(REQUEST_TIMEOUT, client.record_analytics(&api_auth, events))
                     .await
-                    // If the request times out, we can panic here
-                    // because there's no other work to be done
-                    .unwrap()
             {
                 debug!("failed to record cache usage analytics. error: {}", err)
             }
-        });
+        })
     }
 }
 

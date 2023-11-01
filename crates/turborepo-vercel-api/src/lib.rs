@@ -125,14 +125,14 @@ pub struct APIError {
     pub message: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum CacheSource {
     Local,
     Remote,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum CacheEvent {
     Hit,
