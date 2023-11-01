@@ -134,7 +134,7 @@ impl Worker {
     }
 
     fn send_events(&self, mut events: Vec<AnalyticsEvent>) -> JoinHandle<()> {
-        let session_id = self.session_id.clone();
+        let session_id = self.session_id;
         let client = self.client.clone();
         let api_auth = self.api_auth.clone();
         add_session_id(session_id, &mut events);
