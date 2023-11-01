@@ -7424,9 +7424,9 @@ dependencies = [
 
 [[package]]
 name = "swc_css_ast"
-version = "0.140.1"
+version = "0.140.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc05fc7b6aa27942443ab73d8403b25e5b0f35ef176a02f382814090f815de32"
+checksum = "0ee0f59b341b6b2ef731e523f0e9f54884d4071100c217b2a81d7b20c82a0239"
 dependencies = [
  "is-macro",
  "string_enum",
@@ -7510,9 +7510,9 @@ dependencies = [
 
 [[package]]
 name = "swc_css_utils"
-version = "0.137.1"
+version = "0.137.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cee9512afc8ce676b1c84334cfb64671afee84627d688ec71ccdb0c5cb9ea5f"
+checksum = "4fa496e67f6689c245978e940ec13274e7766b1df9a44bd6fef20ab07162318c"
 dependencies = [
  "once_cell",
  "serde",
@@ -7525,9 +7525,9 @@ dependencies = [
 
 [[package]]
 name = "swc_css_visit"
-version = "0.139.1"
+version = "0.139.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33c167d25c05a878ce39c4ff29839dec1719062fab87734393bc89b99b671a63"
+checksum = "f4ba2710303d668f26d2e5f91b3799fefdfb70dc548d56c29890220733b09328"
 dependencies = [
  "serde",
  "swc_atoms",
@@ -10658,8 +10658,8 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
- "rand 0.8.5",
+ "cfg-if 0.1.10",
+ "rand 0.4.6",
  "static_assertions",
 ]
 
