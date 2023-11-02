@@ -44,6 +44,9 @@ impl<'a> CachedPackageFileHasher<'a> {
                     })
                 };
 
+                let span = tracing::debug_span!("constructing trie");
+                let enter = span.enter();
+
                 let (path_hashes, to_hash) = {
                     let mut path_hashes = j1.join().unwrap();
                     let (to_hash, to_remove) = j2.join().unwrap();
@@ -63,6 +66,11 @@ impl<'a> CachedPackageFileHasher<'a> {
                 for path in &to_hash {
                     file_trie.insert_str(path.as_str(), ());
                 }
+
+                drop(enter);
+
+                let span = tracing::debug_span!("constructing map");
+                let enter = span.enter();
 
                 // a subpackage will always have a longer length than its parent,
                 // so we sort by length to ensure that we always and drain subpackages
@@ -97,6 +105,8 @@ impl<'a> CachedPackageFileHasher<'a> {
                         },
                     ));
                 }
+
+                drop(enter);
 
                 Self::Git(GitCachedPackageFileHasher { git, map })
             }
