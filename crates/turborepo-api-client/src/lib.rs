@@ -466,7 +466,7 @@ impl APIClient {
     }
 
     /// Create a new request builder with the preflight check done,
-    /// team parameters added, and CI header.
+    /// team parameters added, CI header, and a content type of json.
     pub(crate) async fn create_request_builder(
         &self,
         url: &str,
