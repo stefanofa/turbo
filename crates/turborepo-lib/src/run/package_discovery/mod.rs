@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use tokio::sync::watch::Receiver;
 use turbopath::AbsoluteSystemPathBuf;
-use turborepo_discovery::{Error, PackageData, PackageDiscovery};
+use turborepo_discovery::{Error, PackageDiscovery, RootWorkspaceData};
 
 use crate::daemon::{DaemonClient, FileWatching};
 
@@ -17,14 +17,14 @@ impl<'a, C: Clone> DaemonPackageDiscovery<'a, C> {
 }
 
 impl<'a, C: Clone + Send> PackageDiscovery for DaemonPackageDiscovery<'a, C> {
-    async fn discover_packages(&mut self) -> Result<Vec<PackageData>, Error> {
+    async fn discover_packages(&mut self) -> Result<Vec<RootWorkspaceData>, Error> {
         Ok(self
             .daemon
             .discover_packages()
             .await
             .map_err(|_| Error::Failed)?
             .into_iter()
-            .map(|p| PackageData {
+            .map(|p| RootWorkspaceData {
                 package_json: AbsoluteSystemPathBuf::new(p.package_json).expect("absolute"),
                 turbo_json: p
                     .turbo_json
@@ -54,7 +54,7 @@ impl WatchingPackageDiscovery {
 }
 
 impl PackageDiscovery for WatchingPackageDiscovery {
-    async fn discover_packages(&mut self) -> Result<Vec<PackageData>, Error> {
+    async fn discover_packages(&mut self) -> Result<Vec<RootWorkspaceData>, Error> {
         // need to clone and drop the Ref before we can await
         let watcher = {
             let watcher = self

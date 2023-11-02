@@ -17,7 +17,7 @@ use turbopath::AbsoluteSystemPathBuf;
 use turborepo_repository::package_manager::{self, PackageManager};
 
 #[derive(Clone)]
-pub struct PackageData {
+pub struct RootWorkspaceData {
     pub package_json: AbsoluteSystemPathBuf,
     pub turbo_json: Option<AbsoluteSystemPathBuf>,
 }
@@ -35,11 +35,11 @@ pub trait PackageDiscovery {
     // desugar to assert that the future is Send
     fn discover_packages(
         &mut self,
-    ) -> impl std::future::Future<Output = Result<Vec<PackageData>, Error>> + Send;
+    ) -> impl std::future::Future<Output = Result<Vec<RootWorkspaceData>, Error>> + Send;
 }
 
 impl<T: PackageDiscovery + Send> PackageDiscovery for Option<T> {
-    async fn discover_packages(&mut self) -> Result<Vec<PackageData>, Error> {
+    async fn discover_packages(&mut self) -> Result<Vec<RootWorkspaceData>, Error> {
         match self {
             Some(d) => d.discover_packages().await,
             None => Err(Error::Unavailable),
@@ -60,7 +60,7 @@ impl LocalPackageDiscovery {
 }
 
 impl PackageDiscovery for LocalPackageDiscovery {
-    async fn discover_packages(&mut self) -> Result<Vec<PackageData>, Error> {
+    async fn discover_packages(&mut self) -> Result<Vec<RootWorkspaceData>, Error> {
         iter(
             self.manager
                 .get_package_jsons(&self.repo_root)
@@ -70,7 +70,7 @@ impl PackageDiscovery for LocalPackageDiscovery {
             let potential_turbo = a.parent().expect("non-root").join_component("turbo.json");
             let potential_turbo_exists = tokio::fs::try_exists(potential_turbo.as_path()).await;
 
-            Ok(PackageData {
+            Ok(RootWorkspaceData {
                 package_json: a,
                 turbo_json: potential_turbo_exists
                     .ok()
@@ -82,31 +82,37 @@ impl PackageDiscovery for LocalPackageDiscovery {
     }
 }
 
-pub struct FallbackPackageDiscovery<A, B> {
-    a: A,
-    b: B,
+/// Attempts to run the `primary` strategy for an amount of time
+/// specified by `timeout` before falling back to `fallback`
+pub struct FallbackPackageDiscovery<P, F> {
+    primary: P,
+    fallback: F,
     timeout: std::time::Duration,
 }
 
-impl<A, B> FallbackPackageDiscovery<A, B> {
-    pub fn new(a: A, b: B, timeout: std::time::Duration) -> Self {
-        Self { a, b, timeout }
+impl<P: PackageDiscovery, F: PackageDiscovery> FallbackPackageDiscovery<P, F> {
+    pub fn new(primary: P, fallback: F, timeout: std::time::Duration) -> Self {
+        Self {
+            primary,
+            fallback,
+            timeout,
+        }
     }
 }
 
 impl<A: PackageDiscovery + Send, B: PackageDiscovery + Send> PackageDiscovery
     for FallbackPackageDiscovery<A, B>
 {
-    async fn discover_packages(&mut self) -> Result<Vec<PackageData>, Error> {
-        match tokio::time::timeout(self.timeout, self.a.discover_packages()).await {
+    async fn discover_packages(&mut self) -> Result<Vec<RootWorkspaceData>, Error> {
+        match tokio::time::timeout(self.timeout, self.primary.discover_packages()).await {
             Ok(Ok(packages)) => Ok(packages),
-            Ok(Err(err1)) => match self.b.discover_packages().await {
+            Ok(Err(err1)) => match self.fallback.discover_packages().await {
                 Ok(packages) => Ok(packages),
                 // if the backup is unavailable, return the original error
                 Err(Error::Unavailable) => Err(err1),
                 Err(err2) => Err(err2),
             },
-            Err(_) => self.b.discover_packages().await,
+            Err(_) => self.fallback.discover_packages().await,
         }
     }
 }

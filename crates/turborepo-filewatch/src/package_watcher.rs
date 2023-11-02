@@ -12,7 +12,7 @@ use tokio::{
     },
 };
 use turbopath::AbsoluteSystemPathBuf;
-use turborepo_discovery::{PackageData, PackageDiscovery};
+use turborepo_discovery::{PackageDiscovery, RootWorkspaceData};
 use turborepo_repository::package_manager::{self, Error, PackageManager, WorkspaceGlobs};
 
 use crate::NotifyError;
@@ -24,7 +24,7 @@ pub struct PackageWatcher {
     // to be notified of a close.
     _exit_tx: oneshot::Sender<()>,
     _handle: tokio::task::JoinHandle<()>,
-    package_data: Arc<Mutex<HashMap<AbsoluteSystemPathBuf, PackageData>>>,
+    package_data: Arc<Mutex<HashMap<AbsoluteSystemPathBuf, RootWorkspaceData>>>,
 }
 
 impl PackageWatcher {
@@ -45,7 +45,7 @@ impl PackageWatcher {
         })
     }
 
-    pub async fn get_package_data(&self) -> Vec<PackageData> {
+    pub async fn get_package_data(&self) -> Vec<RootWorkspaceData> {
         self.package_data
             .lock()
             .await
@@ -61,7 +61,7 @@ struct Subscriber<T: PackageDiscovery> {
     exit_rx: oneshot::Receiver<()>,
     filter: WorkspaceGlobs,
     recv: broadcast::Receiver<Result<Event, NotifyError>>,
-    package_data: Arc<Mutex<HashMap<AbsoluteSystemPathBuf, PackageData>>>,
+    package_data: Arc<Mutex<HashMap<AbsoluteSystemPathBuf, RootWorkspaceData>>>,
     manager: PackageManager,
     repo_root: AbsoluteSystemPathBuf,
     discovery: T,
@@ -71,7 +71,7 @@ impl<T: PackageDiscovery + Send + 'static> Subscriber<T> {
     fn new(
         exit_rx: oneshot::Receiver<()>,
         repo_root: AbsoluteSystemPathBuf,
-        package_data: Arc<Mutex<HashMap<AbsoluteSystemPathBuf, PackageData>>>,
+        package_data: Arc<Mutex<HashMap<AbsoluteSystemPathBuf, RootWorkspaceData>>>,
         recv: broadcast::Receiver<Result<Event, NotifyError>>,
         discovery: T,
     ) -> Result<Self, Error> {
@@ -181,7 +181,7 @@ impl<T: PackageDiscovery + Send + 'static> Subscriber<T> {
                     if let Ok(true) = package_exists {
                         data.insert(
                             path_workspace,
-                            PackageData {
+                            RootWorkspaceData {
                                 package_json,
                                 turbo_json: turbo_exists
                                     .ok()
