@@ -166,7 +166,9 @@ impl<T: PackageDiscovery + Send + 'static> Subscriber<T> {
                 {
                     Ok(is_workspace) => is_workspace,
                     Err(e) => {
-                        tracing::error!("error checking if path is in workspace: {:?}", e);
+                        // this will only error if `repo_root` is not an anchor of `path_workspace`.
+                        // if we hit this case, we can safely ignore it
+                        tracing::debug!("yielded path not in workspace: {:?}", e);
                         continue;
                     }
                 };

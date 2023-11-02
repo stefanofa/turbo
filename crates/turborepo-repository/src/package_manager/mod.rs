@@ -16,7 +16,7 @@ use lazy_regex::{lazy_regex, Lazy};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use turbopath::{AbsoluteSystemPath, AbsoluteSystemPathBuf, RelativeUnixPath};
+use turbopath::{AbsoluteSystemPath, AbsoluteSystemPathBuf, PathError, RelativeUnixPath};
 use turborepo_lockfiles::Lockfile;
 use wax::{Any, Glob, Pattern};
 use which::which;
@@ -162,11 +162,16 @@ impl WorkspaceGlobs {
         })
     }
 
+    /// Checks if the given `target` matches this `WorkspaceGlobs`.
+    ///
+    /// Errors:
+    /// This function returns an Err if `root` is not a valid anchor for
+    /// `target`
     pub fn target_is_workspace(
         &self,
         root: &AbsoluteSystemPath,
         target: &AbsoluteSystemPath,
-    ) -> Result<bool, Error> {
+    ) -> Result<bool, PathError> {
         let search_value = root.anchor(target)?;
 
         let includes = self.directory_inclusions.is_match(&search_value);
