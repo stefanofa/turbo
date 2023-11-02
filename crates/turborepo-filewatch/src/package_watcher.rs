@@ -183,9 +183,7 @@ impl<T: PackageDiscovery + Send + 'static> Subscriber<T> {
                             path_workspace,
                             RootWorkspaceData {
                                 package_json,
-                                turbo_json: turbo_exists
-                                    .ok()
-                                    .and_then(|exists| exists.then_some(turbo_json)),
+                                turbo_json: turbo_exists.unwrap_or_default().then_some(turbo_json),
                             },
                         );
                     } else {
