@@ -169,7 +169,8 @@ mod tests {
         event: turborepo_vercel_api::CacheEvent::Hit,
         hash: "this-is-my-hash".to_string(),
         duration: 58,
-      }
+      },
+      "with-id-local-hit"
     )]
     #[test_case(
       AnalyticsEvent {
@@ -178,7 +179,8 @@ mod tests {
         event: turborepo_vercel_api::CacheEvent::Miss,
         hash: "this-is-my-hash-2".to_string(),
         duration: 21,
-      }
+      },
+      "with-id-remote-miss"
     )]
     #[test_case(
         AnalyticsEvent {
@@ -187,10 +189,11 @@ mod tests {
           event: turborepo_vercel_api::CacheEvent::Miss,
           hash: "this-is-my-hash-2".to_string(),
           duration: 21,
-        }
+        },
+        "without-id-remote-miss"
     )]
-    fn test_serialize_analytics_event(event: AnalyticsEvent) {
+    fn test_serialize_analytics_event(event: AnalyticsEvent, name: &str) {
         let json = serde_json::to_string(&event).unwrap();
-        insta::assert_json_snapshot!(json);
+        insta::assert_json_snapshot!(name, json);
     }
 }

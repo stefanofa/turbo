@@ -14,7 +14,7 @@ use std::{
 
 use anyhow::{anyhow, Context as ErrorContext, Result};
 pub use cache::{RunCache, TaskCache};
-use chrono::Local;
+use chrono::{DateTime, Local};
 use itertools::Itertools;
 use rayon::iter::ParallelBridge;
 use tracing::{debug, info};
@@ -114,13 +114,36 @@ impl<'a> Run<'a> {
             TurboState::platform_name(),
         );
         let start_at = Local::now();
+        let api_auth = self.base.api_auth()?;
+        let api_client = self.base.api_client()?;
+        let (analytics_sender, analytics_handle) =
+            Self::initialize_analytics(api_auth.clone(), api_client.clone()).unzip();
+
+        let result = self
+            .run_with_analytics(start_at, api_auth, api_client, analytics_sender)
+            .await;
+
+        if let Some(analytics_handle) = analytics_handle {
+            analytics_handle.close_with_timeout().await;
+        }
+
+        result
+    }
+
+    // We split this into a separate function because we need
+    // to close the AnalyticsHandle regardless of whether the run succeeds or not
+    async fn run_with_analytics(
+        &mut self,
+        start_at: DateTime<Local>,
+        api_auth: Option<APIAuth>,
+        api_client: APIClient,
+        analytics_sender: Option<AnalyticsSender>,
+    ) -> Result<i32> {
         let package_json_path = self.base.repo_root.join_component("package.json");
         let root_package_json =
             PackageJson::load(&package_json_path).context("failed to read package.json")?;
         let mut opts = self.opts()?;
 
-        let api_auth = self.base.api_auth()?;
-        let api_client = self.base.api_client()?;
         let config = self.base.config()?;
 
         // Pulled from initAnalyticsClient in run.go
@@ -214,9 +237,6 @@ impl<'a> Run<'a> {
         };
 
         let env_at_execution_start = EnvironmentVariableMap::infer();
-
-        let (analytics_sender, analytics_handle) =
-            Self::initialize_analytics(api_auth.clone(), api_client.clone()).unzip();
 
         let async_cache = AsyncCache::new(
             &opts.cache_opts,
@@ -412,10 +432,6 @@ impl<'a> Run<'a> {
                 &env_at_execution_start,
             )
             .await?;
-
-        if let Some(analytics_handle) = analytics_handle {
-            analytics_handle.close_with_timeout().await;
-        }
 
         Ok(exit_code)
     }
