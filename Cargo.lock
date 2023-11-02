@@ -10329,6 +10329,7 @@ dependencies = [
 name = "turborepo-analytics"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "futures",
  "insta",
  "serde_json",

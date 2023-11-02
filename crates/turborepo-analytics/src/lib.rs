@@ -10,7 +10,7 @@ use tokio::{
     task::{JoinError, JoinHandle},
 };
 use tracing::debug;
-use turborepo_api_client::{APIAuth, APIClient};
+use turborepo_api_client::{analytics::AnalyticsClient, APIAuth};
 pub use turborepo_vercel_api::AnalyticsEvent;
 use uuid::Uuid;
 
@@ -38,7 +38,10 @@ pub struct AnalyticsHandle {
     handle: JoinHandle<()>,
 }
 
-pub fn start_analytics(api_auth: APIAuth, client: APIClient) -> (AnalyticsSender, AnalyticsHandle) {
+pub fn start_analytics(
+    api_auth: APIAuth,
+    client: impl AnalyticsClient + Clone + Send + Sync + 'static,
+) -> (AnalyticsSender, AnalyticsHandle) {
     let (tx, rx) = mpsc::unbounded_channel();
     let (cancel_tx, cancel_rx) = oneshot::channel();
     let session_id = Uuid::new_v4();
@@ -76,7 +79,7 @@ impl AnalyticsHandle {
     }
 }
 
-struct Worker {
+struct Worker<C> {
     rx: mpsc::UnboundedReceiver<AnalyticsEvent>,
     buffer: Vec<AnalyticsEvent>,
     session_id: Uuid,
@@ -84,10 +87,10 @@ struct Worker {
     senders: FuturesUnordered<JoinHandle<()>>,
     // Used to cancel the worker
     exit_ch: oneshot::Sender<()>,
-    client: APIClient,
+    client: C,
 }
 
-impl Worker {
+impl<C: AnalyticsClient + Clone + Send + Sync + 'static> Worker<C> {
     pub fn start(mut self) -> JoinHandle<()> {
         tokio::spawn(async move {
             let mut timeout = tokio::time::sleep(NO_TIMEOUT);
@@ -111,7 +114,7 @@ impl Worker {
                         timeout = tokio::time::sleep(NO_TIMEOUT);
                     }
                     _ = self.exit_ch.closed() => {
-                        self.flush_events();
+                                                self.flush_events();
                         for handle in self.senders {
                             if let Err(err) = handle.await {
                                 debug!("failed to send analytics event. error: {}", err)
@@ -159,8 +162,203 @@ fn add_session_id(id: Uuid, events: &mut Vec<AnalyticsEvent>) {
 
 #[cfg(test)]
 mod tests {
+    use std::{
+        cell::RefCell,
+        sync::{Arc, Mutex},
+    };
+
+    use async_trait::async_trait;
     use test_case::test_case;
-    use turborepo_vercel_api::AnalyticsEvent;
+    use tokio::{
+        select,
+        sync::{mpsc, mpsc::UnboundedReceiver},
+        task::yield_now,
+    };
+    use turborepo_api_client::{analytics::AnalyticsClient, APIAuth};
+    use turborepo_vercel_api::{AnalyticsEvent, CacheEvent, CacheSource};
+
+    use crate::start_analytics;
+
+    #[derive(Clone)]
+    struct DummyClient {
+        // A vector that stores each batch of events
+        events: Arc<Mutex<RefCell<Vec<Vec<AnalyticsEvent>>>>>,
+        tx: mpsc::UnboundedSender<()>,
+    }
+
+    impl DummyClient {
+        pub fn events(&self) -> Vec<Vec<AnalyticsEvent>> {
+            self.events.lock().unwrap().borrow().clone()
+        }
+    }
+
+    #[async_trait]
+    impl AnalyticsClient for DummyClient {
+        async fn record_analytics(
+            &self,
+            _api_auth: &APIAuth,
+            events: Vec<AnalyticsEvent>,
+        ) -> Result<(), turborepo_api_client::Error> {
+            self.events.lock().unwrap().borrow_mut().push(events);
+            self.tx.send(()).unwrap();
+
+            Ok(())
+        }
+    }
+
+    // Asserts that we get the message after the timeout
+    async fn expect_timeout_then_message(rx: &mut UnboundedReceiver<()>) {
+        let timeout = tokio::time::sleep(std::time::Duration::from_millis(150));
+
+        select! {
+            _ = rx.recv() => {
+                panic!("Expected to wait out the flush timeout")
+            }
+            _ = timeout => {
+            }
+        }
+
+        rx.recv().await;
+    }
+
+    // Asserts that we get the message immediately before the timeout
+    async fn expected_immediate_message(rx: &mut UnboundedReceiver<()>) {
+        let timeout = tokio::time::sleep(std::time::Duration::from_millis(150));
+
+        select! {
+            _ = rx.recv() => {
+            }
+            _ = timeout => {
+                panic!("expected to not wait out the flush timeout")
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_batching() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+
+        let client = DummyClient {
+            events: Default::default(),
+            tx,
+        };
+
+        let (analytics_sender, analytics_handle) = start_analytics(
+            APIAuth {
+                token: "foo".to_string(),
+                team_id: "bar".to_string(),
+                team_slug: None,
+            },
+            client.clone(),
+        );
+
+        for _ in 0..2 {
+            analytics_sender
+                .send(AnalyticsEvent {
+                    session_id: None,
+                    source: CacheSource::Local,
+                    event: CacheEvent::Hit,
+                    hash: "".to_string(),
+                    duration: 0,
+                })
+                .unwrap();
+        }
+        let found = client.events();
+        // Should have no events since we haven't flushed yet
+        assert_eq!(found.len(), 0);
+
+        expect_timeout_then_message(&mut rx).await;
+        let found = client.events();
+        assert_eq!(found.len(), 1);
+        let payloads = &found[0];
+        assert_eq!(payloads.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_batching_across_two_batches() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+
+        let client = DummyClient {
+            events: Default::default(),
+            tx,
+        };
+
+        let (analytics_sender, analytics_handle) = start_analytics(
+            APIAuth {
+                token: "foo".to_string(),
+                team_id: "bar".to_string(),
+                team_slug: None,
+            },
+            client.clone(),
+        );
+
+        for _ in 0..12 {
+            analytics_sender
+                .send(AnalyticsEvent {
+                    session_id: None,
+                    source: CacheSource::Local,
+                    event: CacheEvent::Hit,
+                    hash: "".to_string(),
+                    duration: 0,
+                })
+                .unwrap();
+        }
+
+        expected_immediate_message(&mut rx).await;
+
+        let found = client.events();
+        assert_eq!(found.len(), 1);
+
+        let payloads = &found[0];
+        assert_eq!(payloads.len(), 10);
+
+        expect_timeout_then_message(&mut rx).await;
+        let found = client.events();
+        assert_eq!(found.len(), 2);
+
+        let payloads = &found[1];
+        assert_eq!(payloads.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_closing() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+
+        let client = DummyClient {
+            events: Default::default(),
+            tx,
+        };
+
+        let (analytics_sender, analytics_handle) = start_analytics(
+            APIAuth {
+                token: "foo".to_string(),
+                team_id: "bar".to_string(),
+                team_slug: None,
+            },
+            client.clone(),
+        );
+
+        for _ in 0..2 {
+            analytics_sender
+                .send(AnalyticsEvent {
+                    session_id: None,
+                    source: CacheSource::Local,
+                    event: CacheEvent::Hit,
+                    hash: "".to_string(),
+                    duration: 0,
+                })
+                .unwrap();
+        }
+
+        let found = client.events();
+        assert!(found.is_empty());
+
+        analytics_handle.close().await.unwrap();
+        let found = client.events();
+        assert_eq!(found.len(), 1);
+        let payloads = &found[0];
+        assert_eq!(payloads.len(), 2);
+    }
 
     #[test_case(
       AnalyticsEvent {

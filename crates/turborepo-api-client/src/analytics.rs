@@ -1,10 +1,21 @@
+use async_trait::async_trait;
 use reqwest::Method;
 pub use turborepo_vercel_api::{AnalyticsEvent, CacheEvent, CacheSource};
 
 use crate::{retry, APIAuth, APIClient, Error};
 
-impl APIClient {
-    pub async fn record_analytics(
+#[async_trait]
+pub trait AnalyticsClient {
+    async fn record_analytics(
+        &self,
+        api_auth: &APIAuth,
+        events: Vec<AnalyticsEvent>,
+    ) -> Result<(), Error>;
+}
+
+#[async_trait]
+impl AnalyticsClient for APIClient {
+    async fn record_analytics(
         &self,
         api_auth: &APIAuth,
         events: Vec<AnalyticsEvent>,
