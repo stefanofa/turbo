@@ -1,14 +1,18 @@
 //! This module hosts the `PackageWatcher` type, which is used to watch the
 //! filesystem for changes to packages.
 
-use std::{collections::HashMap, future::IntoFuture, sync::Arc};
+use std::{
+    collections::HashMap,
+    future::IntoFuture,
+    sync::{Arc, Mutex},
+};
 
 use notify::Event;
 use tokio::{
     join,
     sync::{
         broadcast::{self, error::RecvError},
-        oneshot, Mutex,
+        oneshot,
     },
 };
 use turbopath::AbsoluteSystemPathBuf;
@@ -48,7 +52,7 @@ impl PackageWatcher {
     pub async fn get_package_data(&self) -> Vec<RootWorkspaceData> {
         self.package_data
             .lock()
-            .await
+            .expect("not poisoned")
             .clone()
             .into_values()
             .collect()
@@ -169,7 +173,6 @@ impl<T: PackageDiscovery + Send + 'static> Subscriber<T> {
 
                 if is_workspace {
                     tracing::debug!("tracing file in package: {:?}", path_file);
-                    let mut data = self.package_data.lock().await;
                     let package_json = path_workspace.join_component("package.json");
                     let turbo_json = path_workspace.join_component("turbo.json");
 
@@ -178,6 +181,7 @@ impl<T: PackageDiscovery + Send + 'static> Subscriber<T> {
                         tokio::fs::try_exists(&turbo_json)
                     );
 
+                    let mut data = self.package_data.lock().expect("not poisoned");
                     if let Ok(true) = package_exists {
                         data.insert(
                             path_workspace,
@@ -201,7 +205,7 @@ impl<T: PackageDiscovery + Send + 'static> Subscriber<T> {
                 .into_iter()
                 .map(|p| (p.package_json.parent().expect("non-root").to_owned(), p))
                 .collect();
-            let mut data = self.package_data.lock().await;
+            let mut data = self.package_data.lock().expect("not poisoned");
             *data = workspace;
         } else {
             tracing::error!("error discovering packages");
