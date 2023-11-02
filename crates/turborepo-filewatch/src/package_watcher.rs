@@ -105,10 +105,10 @@ impl<T: PackageDiscovery + Send + 'static> Subscriber<T> {
                     // if we get an error, we need to re-discover the packages
                     Ok(Err(_)) => self.rediscover_packages().await,
                     Err(RecvError::Closed) => return,
-                    // if we end up lagging, just skip the event
+                    // if we end up lagging, warn and rediscover packages
                     Err(RecvError::Lagged(count)) => {
                         tracing::warn!("lagged behind {count} processing file watching events");
-                        continue;
+                        self.rediscover_packages().await;
                     },
                 }
             }
