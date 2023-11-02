@@ -108,7 +108,7 @@ impl CacheMultiplexer {
         key: &str,
     ) -> Result<(CacheResponse, Vec<AnchoredSystemPathBuf>), CacheError> {
         if let Some(fs) = &self.fs {
-            if let Ok(cache_response) = fs.fetch(anchor, key).await {
+            if let Ok(cache_response) = fs.fetch(anchor, key) {
                 return Ok(cache_response);
             }
         }

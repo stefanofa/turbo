@@ -55,7 +55,7 @@ impl FSCache {
         })
     }
 
-    async fn log_fetch(&self, event: analytics::CacheEvent, hash: &str, duration: u64) {
+    fn log_fetch(&self, event: analytics::CacheEvent, hash: &str, duration: u64) {
         // If analytics fails to record, it's not worth failing the cache
         if let Some(analytics_recorder) = &self.analytics_recorder {
             let analytics_event = AnalyticsEvent {
@@ -66,11 +66,11 @@ impl FSCache {
                 duration,
             };
 
-            let _ = analytics_recorder.send(analytics_event).await;
+            let _ = analytics_recorder.send(analytics_event);
         }
     }
 
-    pub async fn fetch(
+    pub fn fetch(
         &self,
         anchor: &AbsoluteSystemPath,
         hash: &str,
@@ -87,7 +87,7 @@ impl FSCache {
         } else if compressed_cache_path.exists() {
             compressed_cache_path
         } else {
-            self.log_fetch(analytics::CacheEvent::Miss, hash, 0).await;
+            self.log_fetch(analytics::CacheEvent::Miss, hash, 0);
             return Err(CacheError::CacheMiss);
         };
 
@@ -101,8 +101,7 @@ impl FSCache {
                 .join_component(&format!("{}-meta.json", hash)),
         )?;
 
-        self.log_fetch(analytics::CacheEvent::Hit, hash, meta.duration)
-            .await;
+        self.log_fetch(analytics::CacheEvent::Hit, hash, meta.duration);
 
         Ok((
             CacheResponse {
@@ -228,7 +227,6 @@ mod test {
 
         let expected_miss = cache
             .fetch(repo_root_path, test_case.hash)
-            .await
             .expect_err("Expected cache miss");
         assert_matches!(expected_miss, CacheError::CacheMiss);
 
@@ -248,7 +246,7 @@ mod test {
             }
         );
 
-        let (status, files) = cache.fetch(repo_root_path, test_case.hash).await?;
+        let (status, files) = cache.fetch(repo_root_path, test_case.hash)?;
         assert_eq!(
             status,
             CacheResponse {

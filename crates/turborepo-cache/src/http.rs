@@ -136,7 +136,7 @@ impl HTTPCache {
                 hash: hash.to_string(),
                 duration,
             };
-            let _ = analytics_recorder.send(analytics_event).await;
+            let _ = analytics_recorder.send(analytics_event);
         }
     }
 

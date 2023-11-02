@@ -19,7 +19,6 @@ const BUFFER_THRESHOLD: usize = 10;
 static EVENT_TIMEOUT: Duration = Duration::from_millis(200);
 static NO_TIMEOUT: Duration = Duration::from_secs(24 * 60 * 60);
 static REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
-const CHANNEL_SIZE: usize = 100;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -32,7 +31,7 @@ pub enum Error {
 // We have two different types because the AnalyticsSender should be shared
 // across threads (i.e. Clone + Send), while the AnalyticsHandle cannot be
 // shared since it contains the structs necessary to shut down the worker.
-pub type AnalyticsSender = mpsc::Sender<AnalyticsEvent>;
+pub type AnalyticsSender = mpsc::UnboundedSender<AnalyticsEvent>;
 
 pub struct AnalyticsHandle {
     exit_ch: oneshot::Receiver<()>,
@@ -40,7 +39,7 @@ pub struct AnalyticsHandle {
 }
 
 pub fn start_analytics(api_auth: APIAuth, client: APIClient) -> (AnalyticsSender, AnalyticsHandle) {
-    let (tx, rx) = mpsc::channel(CHANNEL_SIZE);
+    let (tx, rx) = mpsc::unbounded_channel();
     let (cancel_tx, cancel_rx) = oneshot::channel();
     let session_id = Uuid::new_v4();
     let worker = Worker {
@@ -78,7 +77,7 @@ impl AnalyticsHandle {
 }
 
 struct Worker {
-    rx: mpsc::Receiver<AnalyticsEvent>,
+    rx: mpsc::UnboundedReceiver<AnalyticsEvent>,
     buffer: Vec<AnalyticsEvent>,
     session_id: Uuid,
     api_auth: APIAuth,
