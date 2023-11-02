@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use git2::{Status, StatusOptions};
 use itertools::{Either, Itertools};
 use tracing::{debug, warn};
 use turbopath::{AbsoluteSystemPath, AnchoredSystemPath, PathError, RelativeUnixPathBuf};
@@ -36,11 +37,27 @@ impl<'a> CachedPackageFileHasher<'a> {
                 };
 
                 let j2 = {
-                    let git = git.clone();
                     let repo_root = repo_root.to_owned();
                     std::thread::spawn(move || {
-                        git.append_git_status(&repo_root, &Default::default())
-                            .unwrap()
+                        let repo = git2::Repository::open(repo_root).unwrap();
+                        let mut options = git2::StatusOptions::new();
+                        options.include_untracked(true);
+                        let statuses = repo.statuses(Some(&mut options)).unwrap();
+
+                        let (to_hash, to_remove): (Vec<_>, Vec<_>) = statuses
+                            .into_iter()
+                            .map(|status| {
+                                (
+                                    RelativeUnixPathBuf::new(status.path().unwrap()).unwrap(),
+                                    status.status(),
+                                )
+                            })
+                            .partition_map(|(path, status)| match status {
+                                Status::WT_DELETED => Either::Right(path),
+                                _ => Either::Left(path),
+                            });
+
+                        (to_hash, to_remove)
                     })
                 };
 
@@ -51,6 +68,7 @@ impl<'a> CachedPackageFileHasher<'a> {
                     let mut path_hashes = j1.join().unwrap();
                     let (to_hash, to_remove) = j2.join().unwrap();
 
+                    println!("to hash: {:?}, to_remove: {:?}", to_hash, to_remove);
                     for path in to_remove {
                         path_hashes.remove(&path);
                     }
@@ -95,15 +113,13 @@ impl<'a> CachedPackageFileHasher<'a> {
                         },
                     ));
 
-                    files.extend(file_trie.subtrie_str(package.as_str()).iter().filter_map(
-                        |(path, _)| {
-                            path.as_str()
-                                .strip_prefix(package_str)
-                                .expect("path is a subpath of package")
-                                .strip_prefix('/') // don't include the package itself
-                                .map(|p| RelativeUnixPathBuf::new(p).expect("relative"))
-                        },
-                    ));
+                    files.extend(
+                        file_trie
+                            .subtrie_str(package.as_str())
+                            .iter()
+                            // this should be relative to the repo root
+                            .filter_map(|(path, _)| RelativeUnixPathBuf::new(path.as_str()).ok()),
+                    );
                 }
 
                 drop(enter);
@@ -172,6 +188,8 @@ impl<'a> GitCachedPackageFileHasher<'a> {
                 .git
                 .get_package_file_hashes_from_index(turbo_root, package_path);
         };
+
+        println!("get hashes {} -> {:?}", package_path, files);
 
         let mut hashes = hashes.clone();
         let to_hash = files.iter().map(|f| f.as_ref()).collect::<Vec<_>>();

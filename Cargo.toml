@@ -245,3 +245,6 @@ url = "2.2.2"
 urlencoding = "2.1.2"
 webbrowser = "0.8.7"
 which = "4.4.0"
+
+[patch.crates-io]
+git2 = { git = "https://github.com/rust-lang/git2-rs.git", rev = "git2-0.18.1" }
