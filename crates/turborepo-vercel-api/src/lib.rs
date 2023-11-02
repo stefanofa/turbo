@@ -141,6 +141,7 @@ pub enum CacheEvent {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AnalyticsEvent {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
     pub source: CacheSource,
     pub event: CacheEvent,

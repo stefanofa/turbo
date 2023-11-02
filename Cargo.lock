@@ -3582,6 +3582,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "insta"
+version = "1.34.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d64600be34b2fcfc267740a243fa7744441bb4947a619ac4e5bb6507f35fbfc"
+dependencies = [
+ "console",
+ "lazy_static",
+ "linked-hash-map",
+ "serde",
+ "similar",
+ "yaml-rust",
+]
+
+[[package]]
 name = "instant"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10316,6 +10330,9 @@ name = "turborepo-analytics"
 version = "0.1.0"
 dependencies = [
  "futures",
+ "insta",
+ "serde_json",
+ "test-case",
  "thiserror",
  "tokio",
  "tracing",

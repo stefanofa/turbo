@@ -126,7 +126,7 @@ impl HTTPCache {
         }
     }
 
-    async fn log_fetch(&self, event: analytics::CacheEvent, hash: &str, duration: u64) {
+    fn log_fetch(&self, event: analytics::CacheEvent, hash: &str, duration: u64) {
         // If analytics fails to record, it's not worth failing the cache
         if let Some(analytics_recorder) = &self.analytics_recorder {
             let analytics_event = AnalyticsEvent {
@@ -156,7 +156,7 @@ impl HTTPCache {
 
         let response = match response {
             Err(turborepo_api_client::Error::CacheMiss) => {
-                self.log_fetch(analytics::CacheEvent::Miss, hash, 0).await;
+                self.log_fetch(analytics::CacheEvent::Miss, hash, 0);
                 return Err(CacheError::CacheMiss);
             }
             Err(e) => return Err(e.into()),
@@ -200,8 +200,7 @@ impl HTTPCache {
 
         let files = Self::restore_tar(&self.repo_root, &body)?;
 
-        self.log_fetch(analytics::CacheEvent::Hit, hash, duration)
-            .await;
+        self.log_fetch(analytics::CacheEvent::Hit, hash, duration);
 
         Ok((
             CacheResponse {

@@ -156,3 +156,41 @@ fn add_session_id(id: Uuid, events: &mut Vec<AnalyticsEvent>) {
         event.set_session_id(id.to_string());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use test_case::test_case;
+    use turborepo_vercel_api::AnalyticsEvent;
+
+    #[test_case(
+      AnalyticsEvent {
+        session_id: Some("session-id".to_string()),
+        source: turborepo_vercel_api::CacheSource::Local,
+        event: turborepo_vercel_api::CacheEvent::Hit,
+        hash: "this-is-my-hash".to_string(),
+        duration: 58,
+      }
+    )]
+    #[test_case(
+      AnalyticsEvent {
+        session_id: Some("session-id".to_string()),
+        source: turborepo_vercel_api::CacheSource::Remote,
+        event: turborepo_vercel_api::CacheEvent::Miss,
+        hash: "this-is-my-hash-2".to_string(),
+        duration: 21,
+      }
+    )]
+    #[test_case(
+        AnalyticsEvent {
+          session_id: None,
+          source: turborepo_vercel_api::CacheSource::Remote,
+          event: turborepo_vercel_api::CacheEvent::Miss,
+          hash: "this-is-my-hash-2".to_string(),
+          duration: 21,
+        }
+    )]
+    fn test_serialize_analytics_event(event: AnalyticsEvent) {
+        let json = serde_json::to_string(&event).unwrap();
+        insta::assert_json_snapshot!(json);
+    }
+}
